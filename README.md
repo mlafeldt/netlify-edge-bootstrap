@@ -15,7 +15,7 @@ I gathered all information contained here by reading the source code of Netlify'
 Download current bootstrap code to vendor folder:
 
 ```console
-make vendor
+make bootstrap
 ```
 
 Start playground webserver:

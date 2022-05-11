@@ -5,8 +5,11 @@ BOOTSTRAP_LATEST ?= https://edge-bootstrap.netlify.app/bootstrap/index-combined.
 
 DENO ?= deno
 
+playground:
+	./playground/index.ts --port 9000
+
 vendor:
 	$(RM) -rf vendor
 	$(DENO) vendor --force $(BOOTSTRAP_LATEST)
 
-.PHONY: vendor
+.PHONY: playground vendor

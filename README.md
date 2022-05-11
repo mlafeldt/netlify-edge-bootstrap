@@ -1,8 +1,10 @@
 # netlify-edge-bootstrap
 
-This repo contains the [bootstrap code](vendor/edge-bootstrap.netlify.app/bootstrap) used to initialize the JavaScript/TypeScript environment of Netlify Edge Functions.
+This repo contains the [bootstrap code](vendor/edge-bootstrap.netlify.app/bootstrap) used to initialize the environment of Netlify Edge Functions.
 
-While the [Edge Functions API](https://docs.netlify.com/netlify-labs/experimental-features/edge-functions/api/) is decently documented, I was still curious how Netlify actually integrates [Deno](https://deno.land/) as a runtime behind the scenes. To that end, I also created a [playground](playground) that shows how the bootstrap code can be used to run some example functions (similar to what `netlify dev` does).
+While the [Edge Functions API](https://docs.netlify.com/netlify-labs/experimental-features/edge-functions/api/) is decently documented, I was still curious how Netlify actually integrates [Deno](https://deno.land/) as a JavaScript/TypeScript runtime behind the scenes.
+
+To that end, I also created a [playground](playground) showing how the bootstrap code can be used to run some example functions (similar to `netlify dev`).
 
 I gathered all information contained here by reading the source code of Netlify's [CLI](https://github.com/netlify/cli/tree/main/src/lib/edge-functions) and [Edge Bundler](https://github.com/netlify/edge-bundler).
 
@@ -35,4 +37,4 @@ HELLO WORLD
 HELLO WORLD
 ```
 
-`x-deno-functions` must contain a list of functions to be run in the given order. Function handlers are defined in [playground/netlify/edge-functions](playground/netlify/edge-functions).
+`x-deno-functions` must contain a list of functions to be run in the given order. Function handlers are defined [here](playground/netlify/edge-functions).

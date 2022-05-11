@@ -5,6 +5,11 @@ import { EdgeFunction } from "https://edge-bootstrap.netlify.app/bootstrap/edge_
 
 // Netlify's edge bundler will generate the following code dynamically
 // https://github.com/netlify/edge-bundler/blob/v1.1.0/src/formats/javascript.ts#L106
+//
+// Note that file-based routing happens outside of the bootstrap code.
+// See how the Netlify CLI does it for local dev:
+// https://github.com/netlify/cli/blob/v10.3.0/src/lib/edge-functions/proxy.js#L92
+
 const { default: helloFunc } = await import("./netlify/edge-functions/hello.ts");
 const { default: skipFunc } = await import("./netlify/edge-functions/skip.ts");
 const { default: upFunc } = await import("./netlify/edge-functions/up.ts");

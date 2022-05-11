@@ -1,7 +1,7 @@
-#!/usr/bin/env -S deno run -L debug --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net --import-map ./vendor/import_map.json
+#!/usr/bin/env -S deno run -L debug --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net --import-map ./import_map.json
 
 import { boot } from "https://edge-bootstrap.netlify.app/bootstrap/index-combined.ts";
-import { EdgeFunction } from "https://edge-bootstrap.netlify.app/bootstrap/edge_function.ts";
+import { EdgeFunction } from "netlify:edge";
 
 // Netlify's edge bundler will generate the following code dynamically
 // https://github.com/netlify/edge-bundler/blob/v1.1.0/src/formats/javascript.ts#L106

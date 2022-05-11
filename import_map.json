@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "https://deno.land/": "./vendor/deno.land/",
+    "https://edge-bootstrap.netlify.app/": "./vendor/edge-bootstrap.netlify.app/",
+    "netlify:edge": "./vendor/edge-bootstrap.netlify.app/v1/index.ts"
+  }
+}

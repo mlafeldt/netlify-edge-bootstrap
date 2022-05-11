@@ -3,6 +3,5 @@
     "options": {
       "lineWidth": 120
     }
-  },
-  "importMap": "./import_map.json"
+  }
 }

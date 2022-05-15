@@ -1,6 +1,5 @@
 {
   "imports": {
-    "https://deno.land/": "./deno.land/",
     "https://edge-bootstrap.netlify.app/": "./edge-bootstrap.netlify.app/"
   }
 }

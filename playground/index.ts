@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run -L debug --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net --import-map ./import_map.json
+#!/usr/bin/env -S deno run -L debug --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net --import-map=./import_map.json --no-remote
 
 import { boot } from "https://edge-bootstrap.netlify.app/bootstrap/index-combined.ts";
 import { EdgeFunction } from "netlify:edge";

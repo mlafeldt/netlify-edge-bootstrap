@@ -1,4 +1,5 @@
 DENO ?= deno
+CURL ?= curl
 
 playground:
 	./playground/index.ts --port 9000
@@ -16,5 +17,8 @@ bootstrap:
 		https://edge-bootstrap.netlify.app/bundler/stage1.ts
 	$(DENO) vendor --force --reload --import-map ./import_map.json \
 		https://edge-bootstrap.netlify.app/bootstrap/index-stage1.ts
+# HACK: https://github.com/denoland/deno/issues/14123
+	$(CURL) -fsS https://deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm > vendor/deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm
+	$(RM) vendor/import_map.json
 
 .PHONY: bootstrap playground

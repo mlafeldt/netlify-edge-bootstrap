@@ -1,5 +1,0 @@
-{
-  "imports": {
-    "https://edge-bootstrap.netlify.app/": "./edge-bootstrap.netlify.app/"
-  }
-}

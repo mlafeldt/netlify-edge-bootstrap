@@ -3,7 +3,6 @@
     "https://deno.land/": "./vendor/deno.land/",
     "https://edge-bootstrap.netlify.app/": "./vendor/edge-bootstrap.netlify.app/",
     "netlify:edge": "./vendor/edge-bootstrap.netlify.app/v1/index.ts",
-    "netlify:bootstrap-stage1": "./vendor/edge-bootstrap.netlify.app/bundler/stage1.ts",
-    "netlify:bootstrap-stage2": "./vendor/edge-bootstrap.netlify.app/bundler/stage2.ts"
+    "netlify:bootstrap-stage2": "./playground/stage2.ts"
   }
 }

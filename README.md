@@ -25,13 +25,13 @@ make playground
 Send requests to playground:
 
 ```console
-❯ curl -H 'x-deno-functions: hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:9000
+❯ curl -H 'x-deno-functions: hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
 Hello world
 
-❯ curl -H 'x-deno-functions: up,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:9000
+❯ curl -H 'x-deno-functions: up,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
 HELLO WORLD
 
-❯ curl -H 'x-deno-functions: up,skip,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:9000
+❯ curl -H 'x-deno-functions: up,skip,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
 HELLO WORLD
 ```
 

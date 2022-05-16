@@ -2,7 +2,8 @@ DENO ?= deno
 CURL ?= curl
 
 playground:
-	./playground/index.ts --port 9000
+	$(DENO) run --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net=0.0.0.0 \
+		--import-map=./import_map.json --no-remote -L debug ./playground/stage1.ts
 
 # URLs derived from:
 # - https://github.com/netlify/edge-bundler/blob/v1.1.0/src/formats/javascript.ts#L16

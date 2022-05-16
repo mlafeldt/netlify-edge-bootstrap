@@ -5,6 +5,10 @@ playground:
 	$(DENO) run --allow-read=. --allow-env=DENO_DEPLOYMENT_ID --allow-net=0.0.0.0 \
 		--import-map=./import_map.json --no-remote -L debug ./playground/stage1.ts
 
+bundle:
+	$(DENO) run --allow-read=. --allow-write=. --allow-net=deno.land \
+		--import-map=./import_map.json --no-remote -L debug ./playground/bundle.ts dist
+
 # URLs derived from:
 # - https://github.com/netlify/edge-bundler/blob/v1.1.0/src/formats/javascript.ts#L16
 # - https://github.com/netlify/edge-bundler/blob/v1.1.0/src/import_map.ts#L6
@@ -22,4 +26,4 @@ bootstrap:
 	$(CURL) -fsS https://deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm > vendor/deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm
 	$(RM) vendor/import_map.json
 
-.PHONY: bootstrap playground
+.PHONY: bootstrap bundle playground

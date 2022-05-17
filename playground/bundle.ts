@@ -1,8 +1,9 @@
-#!/usr/bin/env -S deno run --allow-read=. --allow-write=. --allow-net=deno.land --import-map=./import_map.json --no-remote --no-check -L debug
+#!/usr/bin/env -S deno run --allow-read=. --allow-write=. --allow-net=deno.land --import-map=./import_map.json --no-remote --no-check
 
 // Netlify serializes all JS/TS code into two eszip files (stage 1 + 2) and
 // deploys the result via Deno Deploy Subhosting, which (unlike Deno) can load
 // multi-layered eszip files.
+// You can use https://deno.land/x/eszip/eszip.ts to inspect eszip files.
 
 import { writeStage1 } from "https://edge-bootstrap.netlify.app/bundler/stage1.ts";
 import { writeStage2 } from "https://edge-bootstrap.netlify.app/bundler/stage2.ts";

@@ -1,11 +1,14 @@
-DENO ?= deno
-CURL ?= curl
+DENO  ?= deno
+CURL  ?= curl
+ESZIP ?= $(DENO) run --allow-read=. --allow-write=. --allow-net=deno.land --no-check https://deno.land/x/eszip@v0.19.0/eszip.ts
 
 playground:
 	./playground/stage1.ts
 
 bundle:
 	./playground/bundle.ts dist
+	$(ESZIP) ls dist/stage1.eszip
+	$(ESZIP) ls dist/stage2.eszip
 
 # URLs derived from:
 # - https://github.com/netlify/edge-bundler/blob/v1.1.0/src/formats/javascript.ts#L16

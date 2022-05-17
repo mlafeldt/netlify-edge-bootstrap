@@ -1,3 +1,7 @@
+// Netlify serializes all JS/TS code into two eszip files (stage 1 + 2) and
+// deploys the result via Deno Deploy Subhosting, which (unlike Deno) can load
+// multi-layered eszip files.
+
 import { writeStage1 } from "https://edge-bootstrap.netlify.app/bundler/stage1.ts";
 import { writeStage2 } from "https://edge-bootstrap.netlify.app/bundler/stage2.ts";
 import { resolve } from "https://deno.land/std@0.127.0/path/mod.ts";

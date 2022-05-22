@@ -8,7 +8,7 @@ I gathered all information contained here by reading the source code of Netlify'
 
 ## Usage
 
-(Make sure to [install Deno](https://deno.land/manual/getting_started/installation) first.)
+(Make sure to [install Deno](https://deno.land/manual/getting_started/installation) version 1.22 or higher first.)
 
 Download current bootstrap code to vendor folder:
 

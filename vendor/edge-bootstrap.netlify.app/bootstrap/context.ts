@@ -5,6 +5,7 @@ import type { Geo } from "./geo.ts";
 interface Context {
   cookies: Cookies;
   geo: Geo;
+  ip: string | null;
   json: FunctionChain["json"];
   log: ReturnType<FunctionChain["getLogFunction"]>;
   next: (options?: NextOptions) => Promise<Response>;

@@ -31,6 +31,7 @@ class FunctionChain {
   contextNextCalls: NextOptions[];
   functions: RequestFunction[];
   geo: Geo;
+  ip: string | null;
   request: EdgeRequest;
   response: Response;
 
@@ -38,6 +39,7 @@ class FunctionChain {
     this.contextNextCalls = [];
     this.functions = functions;
     this.geo = parseGeoHeader(request.headers.get(Headers.Geo));
+    this.ip = request.headers.get(Headers.IP);
     this.request = request;
     this.response = new Response();
     this.cookies = new CookieStore(this.request);
@@ -63,6 +65,7 @@ class FunctionChain {
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
       geo: this.geo,
+      ip: this.ip,
       json: this.json.bind(this),
       log: this.getLogFunction(functionIndex),
       next: (options: NextOptions = {}) => {

@@ -9,6 +9,7 @@ class EdgeRequest extends Request {
     forwardedProtocol: string | null;
     requestID: string | null;
     passthrough: string | null;
+    ip: string | null;
   };
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -21,6 +22,7 @@ class EdgeRequest extends Request {
       forwardedProtocol: this.headers.get(NFHeaders.ForwardedProtocol),
       passthrough: this.headers.get(NFHeaders.Passthrough),
       requestID: this.headers.get(NFHeaders.RequestID),
+      ip: this.headers.get(NFHeaders.IP),
     };
 
     [

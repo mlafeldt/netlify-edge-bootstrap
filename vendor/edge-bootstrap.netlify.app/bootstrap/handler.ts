@@ -36,7 +36,36 @@ const handleRequest = async (
     return response;
   } catch (e) {
     console.error(e);
-    return new Response(`Error: ${e}`, { status: 500 });
+
+    if (e instanceof Error) {
+      const { message, name, stack, ...details } = e;
+      return new Response(
+        JSON.stringify({
+          message,
+          name,
+          stack,
+          details,
+        }),
+        {
+          status: 500,
+          headers: {
+            "Content-Type": "application/json",
+          },
+        },
+      );
+    }
+
+    return new Response(
+      JSON.stringify({
+        message: String(e),
+      }),
+      {
+        status: 500,
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
   }
 };
 

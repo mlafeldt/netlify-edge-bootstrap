@@ -1,4 +1,9 @@
 {
+  "tasks": {
+    "playground": "make playground",
+    "bundle": "make bundle",
+    "bootstrap": "make bootstrap"
+  },
   "fmt": {
     "options": {
       "lineWidth": 120

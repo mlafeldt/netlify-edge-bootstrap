@@ -163,6 +163,7 @@ class FunctionChain {
 
       return response;
     } catch (error) {
+      context.log(error);
       throw error;
     }
   }

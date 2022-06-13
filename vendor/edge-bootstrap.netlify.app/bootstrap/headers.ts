@@ -6,6 +6,7 @@ enum Headers {
   Passthrough = "x-deno-pass",
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
+  UncaughtError = "x-nf-uncaught-error",
 }
 
 export default Headers;

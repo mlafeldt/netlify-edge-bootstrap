@@ -34,38 +34,13 @@ const handleRequest = async (
     const response = await chain.run();
 
     return response;
-  } catch (e) {
-    console.error(e);
-
-    if (e instanceof Error) {
-      const { message, name, stack, ...details } = e;
-      return new Response(
-        JSON.stringify({
-          message,
-          name,
-          stack,
-          details,
-        }),
-        {
-          status: 500,
-          headers: {
-            "Content-Type": "application/json",
-          },
-        },
-      );
-    }
-
-    return new Response(
-      JSON.stringify({
-        message: String(e),
-      }),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json",
-        },
+  } catch (error) {
+    return new Response(String(error), {
+      status: 500,
+      headers: {
+        [Headers.UncaughtError]: "1",
       },
-    );
+    });
   }
 };
 

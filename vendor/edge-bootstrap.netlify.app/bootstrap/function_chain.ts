@@ -43,6 +43,8 @@ class FunctionChain {
     this.request = request;
     this.response = new Response();
     this.cookies = new CookieStore(this.request);
+
+    request.headers.delete(Headers.IP);
   }
 
   async fetchOrigin({ url }: FetchOriginOptions = {}) {

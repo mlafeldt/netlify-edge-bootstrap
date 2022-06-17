@@ -21,8 +21,7 @@ bootstrap:
 		https://edge-bootstrap.netlify.app/v1/index.ts \
 		https://edge-bootstrap.netlify.app/bundler/mod.ts \
 		https://edge-bootstrap.netlify.app/bundler/stage1.ts
-	$(DENO) vendor --force --reload \
-		https://edge-bootstrap.netlify.app/bootstrap/index-stage1.ts
+	$(CURL) -fsS https://edge-bootstrap.netlify.app/bootstrap/index-stage1.ts > vendor/edge-bootstrap.netlify.app/bootstrap/index-stage1.ts
 # HACK: https://github.com/denoland/deno/issues/14123
 	$(CURL) -fsS https://deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm > vendor/deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm
 	$(RM) vendor/import_map.json

@@ -1,6 +1,7 @@
-DENO  ?= deno
-CURL  ?= curl
-ESZIP ?= $(DENO) run --allow-read=. --allow-write=. --allow-net=deno.land --no-check https://deno.land/x/eszip@v0.19.0/eszip.ts
+DENO    ?= deno
+CURL    ?= curl
+ESZIP   ?= $(DENO) run --allow-read=. --allow-write=. --allow-net=deno.land --no-check https://deno.land/x/eszip@v0.19.0/eszip.ts
+APP_URL ?= https://edge-bootstrap.netlify.app
 
 playground:
 	./playground/stage1.ts
@@ -17,11 +18,11 @@ bundle:
 bootstrap:
 	$(RM) -r vendor
 	$(DENO) vendor --force --reload --no-config \
-		https://edge-bootstrap.netlify.app/bootstrap/index-combined.ts \
-		https://edge-bootstrap.netlify.app/v1/index.ts \
-		https://edge-bootstrap.netlify.app/bundler/mod.ts \
-		https://edge-bootstrap.netlify.app/bundler/stage1.ts
-	$(CURL) -fsS https://edge-bootstrap.netlify.app/bootstrap/index-stage1.ts > vendor/edge-bootstrap.netlify.app/bootstrap/index-stage1.ts
+		$(APP_URL)/bootstrap/index-combined.ts \
+		$(APP_URL)/v1/index.ts \
+		$(APP_URL)/bundler/mod.ts \
+		$(APP_URL)/bundler/stage1.ts
+	$(CURL) -fsS $(APP_URL)/bootstrap/index-stage1.ts > vendor/edge-bootstrap.netlify.app/bootstrap/index-stage1.ts
 # HACK: https://github.com/denoland/deno/issues/14123
 	$(CURL) -fsS https://deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm > vendor/deno.land/x/eszip@v0.18.0/eszip_wasm_bg.wasm
 	$(RM) vendor/import_map.json

@@ -25,6 +25,7 @@ jobs:
         run: |
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          if git commit -a -m "Sync bootstrap code"; then
+          git add modules/
+          if git commit -m "Sync bootstrap code"; then
               git push origin main
           fi

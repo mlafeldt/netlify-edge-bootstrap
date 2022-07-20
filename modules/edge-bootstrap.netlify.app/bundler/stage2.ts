@@ -13,8 +13,9 @@ interface InputFunction {
 
 interface WriteStage2Options {
   basePath: string;
-  functions: InputFunction[];
   destPath: string;
+  functions: InputFunction[];
+  imports?: Record<string, string>;
 }
 
 const getFunctionReference = (
@@ -53,6 +54,7 @@ const getVirtualPath = (basePath: string, filePath: string) => {
 const stage2Loader = (
   basePath: string,
   functions: InputFunction[],
+  imports: Record<string, string> = {},
 ) => {
   return async (specifier: string): Promise<LoadResponse | undefined> => {
     if (specifier === STAGE2_SPECIFIER) {
@@ -68,6 +70,10 @@ const stage2Loader = (
       };
     }
 
+    if (imports[specifier] !== undefined) {
+      return await load(imports[specifier]);
+    }
+
     if (specifier.startsWith(virtualRoot)) {
       return loadFromVirtualRoot(specifier, virtualRoot, basePath);
     }
@@ -77,9 +83,9 @@ const stage2Loader = (
 };
 
 const writeStage2 = async (
-  { basePath, functions, destPath }: WriteStage2Options,
+  { basePath, destPath, functions, imports }: WriteStage2Options,
 ) => {
-  const loader = stage2Loader(basePath, functions);
+  const loader = stage2Loader(basePath, functions, imports);
   const bytes = await build([STAGE2_SPECIFIER], loader);
 
   return await Deno.writeFile(destPath, bytes);

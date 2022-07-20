@@ -38,6 +38,9 @@ class EdgeRequest extends Request {
   }
 }
 
+export const getRequestID = (request: EdgeRequest) =>
+  request[internals].requestID;
+
 interface OriginRequestOptions {
   req: EdgeRequest;
   stripConditionalHeaders?: boolean;

@@ -5,7 +5,7 @@ import { getEnvironment } from "./environment.ts";
 import { Geo, parseGeoHeader } from "./geo.ts";
 import { parseSiteHeader, Site } from "./site.ts";
 import Headers from "./headers.ts";
-import { EdgeRequest, OriginRequest } from "./request.ts";
+import { EdgeRequest, getRequestID, OriginRequest } from "./request.ts";
 import { OriginResponse } from "./response.ts";
 
 interface FetchOriginOptions {
@@ -103,7 +103,13 @@ class FunctionChain {
       const environment = getEnvironment();
 
       if (environment === "production") {
-        console.log(JSON.stringify({ netlifyEdgeFunctionName: name }), ...data);
+        console.log(
+          JSON.stringify({
+            netlifyEdgeFunctionName: name,
+            netlifyRequestID: getRequestID(this.request),
+          }),
+          ...data,
+        );
 
         return;
       }

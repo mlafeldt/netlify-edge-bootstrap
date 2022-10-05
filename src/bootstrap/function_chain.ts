@@ -1,12 +1,23 @@
+import { Status } from "https://deno.land/std@0.136.0/http/http_status.ts";
+
+import { Account, parseAccountHeader } from "./account.ts";
 import type { Context, NextOptions } from "./context.ts";
 import type { EdgeFunction } from "./edge_function.ts";
 import { CookieStore } from "./cookie_store.ts";
-import { getEnvironment } from "./environment.ts";
 import { Geo, parseGeoHeader } from "./geo.ts";
+import { instrumentedLog, LogLocation } from "./log/log_location.ts";
 import { parseSiteHeader, Site } from "./site.ts";
 import Headers from "./headers.ts";
-import { EdgeRequest, getRequestID, OriginRequest } from "./request.ts";
+import {
+  EdgeRequest,
+  getFeatureFlags,
+  getRequestID,
+  OriginRequest,
+} from "./request.ts";
+import { Logger } from "./log/log_location.ts";
+import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
+import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 
 interface FetchOriginOptions {
   url?: URL;
@@ -14,6 +25,7 @@ interface FetchOriginOptions {
 
 interface FunctionChainOptions {
   functions: RequestFunction[];
+  rawLogger?: Logger;
   request: EdgeRequest;
 }
 
@@ -23,11 +35,12 @@ interface RequestFunction {
 }
 
 interface RunFunctionOptions {
+  canBypass?: boolean;
   functionIndex: number;
   nextOptions?: NextOptions;
 }
 
-const INTERNAL_HEADERS = [Headers.IP, Headers.Site];
+const INTERNAL_HEADERS = [Headers.IP, Headers.SiteInfo, Headers.AccountInfo];
 
 class FunctionChain {
   cookies: CookieStore;
@@ -35,19 +48,23 @@ class FunctionChain {
   functions: RequestFunction[];
   geo: Geo;
   site: Site;
+  account: Account;
   ip: string | null;
+  rawLogger?: Logger;
   request: EdgeRequest;
   response: Response;
 
-  constructor({ functions, request }: FunctionChainOptions) {
+  constructor({ functions, rawLogger, request }: FunctionChainOptions) {
     this.contextNextCalls = [];
     this.functions = functions;
     this.geo = parseGeoHeader(request.headers.get(Headers.Geo));
     this.ip = request.headers.get(Headers.IP);
+    this.rawLogger = rawLogger;
     this.request = request;
     this.response = new Response();
     this.cookies = new CookieStore(this.request);
-    this.site = parseSiteHeader(request.headers.get(Headers.Site));
+    this.site = parseSiteHeader(request.headers.get(Headers.SiteInfo));
+    this.account = parseAccountHeader(request.headers.get(Headers.AccountInfo));
 
     this.stripInternalHeaders();
   }
@@ -68,7 +85,9 @@ class FunctionChain {
       stripConditionalHeaders,
       url,
     });
-    const res = await fetch(originReq, { redirect: "manual" });
+    const res = await backoffRetry(() =>
+      fetch(originReq, { redirect: "manual" })
+    );
     const originRes = new OriginResponse(res, this.response);
 
     return originRes;
@@ -89,8 +108,10 @@ class FunctionChain {
           nextOptions: options,
         });
       },
+      requestId: getRequestID(this.request) ?? "",
       rewrite: this.rewrite.bind(this),
       site: this.site,
+      account: this.account,
     };
 
     return context;
@@ -98,31 +119,25 @@ class FunctionChain {
 
   getLogFunction(functionIndex: number) {
     const { name } = this.functions[functionIndex];
+    const logger = this.rawLogger ?? console.log;
 
     return (...data: unknown[]) => {
-      const environment = getEnvironment();
-
-      if (environment === "production") {
-        console.log(
-          JSON.stringify({
-            netlifyEdgeFunctionName: name,
-            netlifyRequestID: getRequestID(this.request),
-          }),
-          ...data,
-        );
-
-        return;
-      }
-
-      console.log(`[${name}]`, ...data);
+      return instrumentedLog(
+        logger,
+        data,
+        name,
+        getRequestID(this.request) ?? undefined,
+      );
     };
   }
 
   json(input: unknown, init?: ResponseInit) {
     const value = JSON.stringify(input);
-    const headers = { ...init?.headers, "content-type": "application/json" };
+    const response = new Response(value, init);
 
-    return new Response(value, { ...init, headers });
+    response.headers.set("content-type", "application/json");
+
+    return response;
   }
 
   makeURL(urlPath: string) {
@@ -161,22 +176,54 @@ class FunctionChain {
   }
 
   async runFunction({
+    canBypass = false,
     functionIndex,
     nextOptions,
   }: RunFunctionOptions): Promise<Response> {
     const func = this.functions[functionIndex];
+    const flags = getFeatureFlags(this.request);
 
+    // If we got to the end of the function chain and the response hasn't been
+    // terminated, we call origin.
     if (func === undefined) {
+      if (canBypass && flags.edge_functions_bootstrap_early_return) {
+        return new Response(null, {
+          headers: {
+            [Headers.EdgeFunctionBypass]: "1",
+          },
+          status: Status.NoContent,
+        });
+      }
+
       return this.fetchOrigin();
     }
 
     const context = this.getContext(functionIndex);
 
     try {
-      const response = await func.function(this.request, context);
+      // Rather than calling the function directly, we call it through a special
+      // identity function. The name of this function has a marker that allows us
+      // to decode the request ID from any `console.log` calls by inspecting the
+      // stack trace.
+      const response = await callWithNamedWrapper(
+        () => func.function(this.request, context),
+        LogLocation.serializeRequestID(getRequestID(this.request)),
+      );
 
       if (response === undefined) {
+        // If the function has early-returned, we can return a bypass header so
+        // that our edge node can let the request follow its normal course. But
+        // we can only do this when all of the conditions below are met:
+        //
+        // 1. The previous function hasn't called `context.next()` — if it has,
+        //    we must return the full response as it may get transformed
+        // 2. The request doesn't have a body — if it does, it's already been
+        //    consumed and our edge node won't be able to process it further
+        const canBypass = nextOptions === undefined &&
+          this.request.body === null;
+
         return this.runFunction({
+          canBypass,
           functionIndex: functionIndex + 1,
           nextOptions,
         });

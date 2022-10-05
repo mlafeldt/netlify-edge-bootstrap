@@ -1,10 +1,9 @@
-import { load } from "https://deno.land/x/eszip@v0.18.0/loader.ts";
 import { build, LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
 
 import * as path from "https://deno.land/std@0.127.0/path/mod.ts";
 
 import { PUBLIC_SPECIFIER, STAGE2_SPECIFIER, virtualRoot } from "../consts.ts";
-import { inlineModule, loadFromVirtualRoot } from "./common.ts";
+import { inlineModule, loadFromVirtualRoot, loadWithRetry } from "./common.ts";
 
 interface InputFunction {
   name: string;
@@ -71,14 +70,14 @@ const stage2Loader = (
     }
 
     if (imports[specifier] !== undefined) {
-      return await load(imports[specifier]);
+      return await loadWithRetry(imports[specifier]);
     }
 
     if (specifier.startsWith(virtualRoot)) {
       return loadFromVirtualRoot(specifier, virtualRoot, basePath);
     }
 
-    return await load(specifier);
+    return await loadWithRetry(specifier);
   };
 };
 

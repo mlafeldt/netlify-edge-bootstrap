@@ -1,13 +1,17 @@
 enum Headers {
   Geo = "x-nf-geo",
-  Site = "x-nf-site-info",
+  SiteInfo = "x-nf-site-info",
+  AccountInfo = "x-nf-account-info",
   ForwardedHost = "x-forwarded-host",
   ForwardedProtocol = "x-forwarded-proto",
   Functions = "x-deno-functions",
   Passthrough = "x-deno-pass",
+  PassthroughHost = "x-nf-passthrough-host",
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
   UncaughtError = "x-nf-uncaught-error",
+  FeatureFlags = "x-nf-feature-flags",
+  EdgeFunctionBypass = "x-nf-edge-function-bypass",
 }
 
 export default Headers;

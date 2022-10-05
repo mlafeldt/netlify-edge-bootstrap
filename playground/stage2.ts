@@ -18,3 +18,5 @@ export const functions: Record<string, EdgeFunction> = {
   "skip": skipFunc,
   "up": upFunc,
 };
+
+export const metadata = undefined;

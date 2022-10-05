@@ -5,9 +5,9 @@
 // multi-layered eszip files.
 // You can use https://deno.land/x/eszip/eszip.ts to inspect eszip files.
 
-import { writeStage1 } from "https://edge-bootstrap.netlify.app/bundler/stage1.ts";
-import { writeStage2 } from "https://edge-bootstrap.netlify.app/bundler/stage2.ts";
-import { resolve } from "https://deno.land/std@0.127.0/path/mod.ts";
+import { writeStage1 } from "https://edge.netlify.com/bundler/stage1.ts";
+import { writeStage2 } from "https://edge.netlify.com/bundler/stage2.ts";
+import { resolve } from "https://deno.land/std@0.158.0/path/mod.ts";
 
 const outDir = Deno.args[0];
 

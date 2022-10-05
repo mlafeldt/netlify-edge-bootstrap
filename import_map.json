@@ -1,6 +1,6 @@
 {
   "imports": {
-    "https://edge-bootstrap.netlify.app/": "./src/",
+    "https://edge.netlify.com/": "./src/",
     "netlify:edge": "./src/v1/index.ts",
     "netlify:bootstrap-stage2": "./playground/stage2.ts"
   }

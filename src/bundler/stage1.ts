@@ -1,8 +1,7 @@
-import { load } from "https://deno.land/x/eszip@v0.18.0/loader.ts";
 import { build, LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
 
 import { STAGE1_SPECIFIER, STAGE2_SPECIFIER, virtualRoot } from "../consts.ts";
-import { inlineModule, loadFromVirtualRoot } from "./common.ts";
+import { inlineModule, loadFromVirtualRoot, loadWithRetry } from "./common.ts";
 
 const stage1Entry = `
 import { boot } from "${virtualRoot}src/bootstrap/index-stage1.ts";
@@ -10,7 +9,8 @@ import { boot } from "${virtualRoot}src/bootstrap/index-stage1.ts";
 await boot()
 `;
 
-const stage1Loader = (basePath: string) =>
+const stage1Loader =
+  (basePath: string) =>
   async (specifier: string): Promise<LoadResponse | undefined> => {
     if (specifier === STAGE1_SPECIFIER) {
       return inlineModule(specifier, stage1Entry);
@@ -24,7 +24,7 @@ const stage1Loader = (basePath: string) =>
       return loadFromVirtualRoot(specifier, virtualRoot, basePath);
     }
 
-    return await load(specifier);
+    return await loadWithRetry(specifier);
   };
 
 const writeStage1 = async (basePath: string, destPath: string) => {

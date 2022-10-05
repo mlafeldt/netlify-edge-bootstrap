@@ -1,5 +1,6 @@
 import { getEnvironment } from "./environment.ts";
 import NFHeaders, { conditionals as conditionalHeaders } from "./headers.ts";
+import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 
 const internals = Symbol("Netlify Internals");
 
@@ -9,7 +10,9 @@ class EdgeRequest extends Request {
     forwardedProtocol: string | null;
     requestID: string | null;
     passthrough: string | null;
+    passthroughHost: string | null;
     ip: string | null;
+    featureFlags: FeatureFlags;
   };
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -21,8 +24,12 @@ class EdgeRequest extends Request {
       forwardedHost: this.headers.get(NFHeaders.ForwardedHost),
       forwardedProtocol: this.headers.get(NFHeaders.ForwardedProtocol),
       passthrough: this.headers.get(NFHeaders.Passthrough),
+      passthroughHost: this.headers.get(NFHeaders.PassthroughHost),
       requestID: this.headers.get(NFHeaders.RequestID),
       ip: this.headers.get(NFHeaders.IP),
+      featureFlags: parseFeatureFlagsHeader(
+        this.headers.get(NFHeaders.FeatureFlags),
+      ),
     };
 
     [
@@ -30,16 +37,24 @@ class EdgeRequest extends Request {
       NFHeaders.ForwardedProtocol,
       NFHeaders.Functions,
       NFHeaders.Passthrough,
-    ].forEach(
-      (header) => {
-        this.headers.delete(header);
-      },
-    );
+      NFHeaders.PassthroughHost,
+      NFHeaders.FeatureFlags,
+    ].forEach((header) => {
+      this.headers.delete(header);
+    });
   }
 }
 
 export const getRequestID = (request: EdgeRequest) =>
   request[internals].requestID;
+
+/**
+ * Returns all feature flags for the request.
+ * Only flags with prefix edge_functions_bootstrap_ are returned.
+ * Beware: Only for Netlify-Internal use!
+ */
+export const getFeatureFlags = (request: EdgeRequest) =>
+  request[internals].featureFlags;
 
 interface OriginRequestOptions {
   req: EdgeRequest;
@@ -48,10 +63,11 @@ interface OriginRequestOptions {
 }
 
 class OriginRequest extends EdgeRequest {
-  constructor(
-    { req, stripConditionalHeaders = false, url = new URL(req.url) }:
-      OriginRequestOptions,
-  ) {
+  constructor({
+    req,
+    stripConditionalHeaders = false,
+    url = new URL(req.url),
+  }: OriginRequestOptions) {
     const passthroughHeader = req[internals].passthrough;
     const requestIDHeader = req[internals].requestID;
     const environment = getEnvironment();
@@ -64,6 +80,10 @@ class OriginRequest extends EdgeRequest {
         ? `${req[internals].forwardedProtocol}:`
         : url.protocol;
     }
+
+    // The edge node can pass this header to tell the isolate which host it
+    // should use for the origin call.
+    url.host = req[internals].passthroughHost ?? url.host;
 
     super(new Request(url.toString(), req));
 

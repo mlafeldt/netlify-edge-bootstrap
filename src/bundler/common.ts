@@ -1,6 +1,7 @@
 import { load } from "https://deno.land/x/eszip@v0.18.0/loader.ts";
 import { LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
 import * as path from "https://deno.land/std@0.127.0/path/mod.ts";
+import { retryAsync } from "https://deno.land/x/retry@v2.0.0/mod.ts";
 
 const inlineModule = (
   specifier: string,
@@ -32,4 +33,15 @@ const loadFromVirtualRoot = async (
   return { ...file, specifier };
 };
 
-export { inlineModule, loadFromVirtualRoot };
+const loadWithRetry = (specifier: string, delay = 1000, maxTry = 3) => {
+  if (!specifier.startsWith("https://")) {
+    return load(specifier);
+  }
+
+  return retryAsync(() => load(specifier), {
+    delay,
+    maxTry,
+  });
+};
+
+export { inlineModule, loadFromVirtualRoot, loadWithRetry };

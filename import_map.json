@@ -1,8 +1,7 @@
 {
   "imports": {
-    "https://deno.land/": "./modules/deno.land/",
-    "https://edge-bootstrap.netlify.app/": "./modules/edge-bootstrap.netlify.app/",
-    "netlify:edge": "./modules/edge-bootstrap.netlify.app/v1/index.ts",
+    "https://edge-bootstrap.netlify.app/": "./src/",
+    "netlify:edge": "./src/v1/index.ts",
     "netlify:bootstrap-stage2": "./playground/stage2.ts"
   }
 }

@@ -15,11 +15,11 @@ bundle:
 bootstrap:
 	$(RM) -r src vendor
 	$(DENO) vendor --force --reload --no-config \
+		$(APP_URL)/index.ts \
 		$(APP_URL)/bootstrap/index-combined.ts \
-		$(APP_URL)/v1/index.ts \
+		$(APP_URL)/bootstrap/index-stage1.ts \
 		$(APP_URL)/bundler/mod.ts \
-		$(APP_URL)/bundler/stage1.ts \
-		$(APP_URL)/bootstrap/index-stage1.ts
+		$(APP_URL)/bundler/stage1.ts
 	mv -v vendor/edge.netlify.com src
 	$(RM) -r vendor
 

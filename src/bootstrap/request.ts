@@ -13,6 +13,7 @@ class EdgeRequest extends Request {
     passthroughHost: string | null;
     ip: string | null;
     featureFlags: FeatureFlags;
+    passthroughTiming?: string;
   };
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -47,6 +48,13 @@ class EdgeRequest extends Request {
 
 export const getRequestID = (request: EdgeRequest) =>
   request[internals].requestID;
+
+export const getPassthroughTiming = (request: EdgeRequest) =>
+  request[internals].passthroughTiming;
+
+export const setPassthroughTiming = (request: EdgeRequest, value: string) => {
+  request[internals].passthroughTiming = value;
+};
 
 /**
  * Returns all feature flags for the request.

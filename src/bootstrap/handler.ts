@@ -1,7 +1,11 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
-import { EdgeRequest, getFeatureFlags } from "./request.ts";
+import {
+  EdgeRequest,
+  getFeatureFlags,
+  getPassthroughTiming,
+} from "./request.ts";
 import Headers from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 
@@ -48,6 +52,13 @@ const handleRequest = async (
       request: edgeReq,
     });
     const response = await chain.run();
+
+    // If we talked to origin and we got a timing header back, let's propagate it to
+    // the final response.
+    const passthroughTiming = getPassthroughTiming(edgeReq);
+    if (passthroughTiming) {
+      response.headers.set(Headers.PassthroughTiming, passthroughTiming);
+    }
 
     return response;
   } catch (error) {

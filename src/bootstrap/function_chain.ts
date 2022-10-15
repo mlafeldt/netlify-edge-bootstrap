@@ -13,6 +13,7 @@ import {
   getFeatureFlags,
   getRequestID,
   OriginRequest,
+  setPassthroughTiming,
 } from "./request.ts";
 import { Logger } from "./log/log_location.ts";
 import { backoffRetry } from "./retry.ts";
@@ -89,6 +90,14 @@ class FunctionChain {
       fetch(originReq, { redirect: "manual" })
     );
     const originRes = new OriginResponse(res, this.response);
+
+    // The edge node will send a header with how much time was spent in going to
+    // origin. We attach it to the request so that we can attach it to the final response
+    // later.
+    const passthroughTiming = originRes.headers.get(Headers.PassthroughTiming);
+    if (passthroughTiming) {
+      setPassthroughTiming(this.request, passthroughTiming);
+    }
 
     return originRes;
   }

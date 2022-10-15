@@ -12,6 +12,7 @@ enum Headers {
   UncaughtError = "x-nf-uncaught-error",
   FeatureFlags = "x-nf-feature-flags",
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
+  PassthroughTiming = "x-nf-passthrough-timing",
 }
 
 export default Headers;

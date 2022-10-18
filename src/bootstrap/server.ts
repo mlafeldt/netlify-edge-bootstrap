@@ -8,12 +8,8 @@ import { handleRequest } from "./handler.ts";
 import { patchLogger } from "./log/log_location.ts";
 import { Functions, Metadata } from "./stage_2.ts";
 
-export const serve = (
-  functions: Functions,
-  metadata?: Metadata,
-) => {
+export const serve = (functions: Functions, metadata?: Metadata) => {
   const consoleLog = globalThis.console.log;
-
   globalThis.console.log = patchLogger(globalThis.console.log, metadata);
 
   const serveOptions: ServeInit = {};

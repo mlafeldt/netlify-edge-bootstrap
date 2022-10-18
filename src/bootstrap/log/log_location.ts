@@ -91,11 +91,18 @@ export class LogLocation extends Error {
   }
 }
 
+type LogType = "system";
+
 interface NetlifyMetadata {
-  netlifyEdgeFunctionName?: string;
-  netlifyRequestID?: string;
-  netlifyRequestPath?: string;
+  __nfmeta: {
+    edgeFunctionName?: string;
+    requestID?: string;
+    requestPath?: string;
+    type?: LogType;
+  };
 }
+
+export const SystemLogTag = Symbol("systemLog");
 
 export const instrumentedLog = (
   logger: Logger,
@@ -107,15 +114,22 @@ export const instrumentedLog = (
 
   if (environment === "production") {
     const metadata: NetlifyMetadata = {
-      netlifyEdgeFunctionName: functionName,
-      netlifyRequestID: requestID,
+      __nfmeta: {
+        edgeFunctionName: functionName,
+        requestID: requestID,
+      },
     };
+
+    if (data[0] === SystemLogTag) {
+      metadata.__nfmeta.type = "system";
+      data = data.slice(1);
+    }
 
     if (requestID) {
       const request = requestStore.get(requestID);
       if (request) {
         const url = new URL(request.url);
-        metadata.netlifyRequestPath = url.pathname;
+        metadata.__nfmeta.requestPath = url.pathname;
       }
     }
 

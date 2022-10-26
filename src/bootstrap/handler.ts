@@ -1,11 +1,7 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
-import {
-  EdgeRequest,
-  getFeatureFlags,
-  getPassthroughTiming,
-} from "./request.ts";
+import { EdgeRequest, getPassthroughTiming } from "./request.ts";
 import Headers from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 
@@ -40,11 +36,8 @@ const handleRequest = async (
       function: functions[name],
     }));
     const edgeReq = new EdgeRequest(req);
-    const flags = getFeatureFlags(edgeReq);
 
-    if (flags.edge_functions_bootstrap_enable_request_store) {
-      requestStore.set(id, edgeReq);
-    }
+    requestStore.set(id, edgeReq);
 
     const chain = new FunctionChain({
       functions: requestFunctions,

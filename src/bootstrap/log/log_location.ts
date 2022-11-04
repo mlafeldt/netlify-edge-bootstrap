@@ -2,7 +2,7 @@ import "./types.ts";
 import { getEnvironment } from "../environment.ts";
 import { FunctionMetadata, Metadata } from "../stage_2.ts";
 import { requestStore } from "../handler.ts";
-
+import { systemLogSymbol } from "../system_log.ts";
 export class LogLocation extends Error {
   private functions: Map<string, string>;
 
@@ -91,18 +91,14 @@ export class LogLocation extends Error {
   }
 }
 
-type LogType = "system";
+type LogType = "system" | "systemJSON";
 
-interface NetlifyMetadata {
-  __nfmeta: {
-    edgeFunctionName?: string;
-    requestID?: string;
-    requestPath?: string;
-    type?: LogType;
-  };
+export interface NetlifyMetadata {
+  edgeFunctionName?: string;
+  requestID?: string;
+  requestPath?: string;
+  type?: LogType;
 }
-
-export const SystemLogTag = Symbol("systemLog");
 
 export const instrumentedLog = (
   logger: Logger,
@@ -113,27 +109,33 @@ export const instrumentedLog = (
   const environment = getEnvironment();
 
   if (environment === "production") {
-    const metadata: NetlifyMetadata = {
-      __nfmeta: {
-        edgeFunctionName: functionName,
-        requestID: requestID,
-      },
+    let metadata: NetlifyMetadata = {
+      edgeFunctionName: functionName,
+      requestID: requestID,
     };
 
-    if (data[0] === SystemLogTag) {
-      metadata.__nfmeta.type = "system";
-      data = data.slice(1);
+    if (data[0] === systemLogSymbol) {
+      if (typeof data[1] === "object") {
+        const additionalMetadata = data[1] as NetlifyMetadata;
+
+        metadata = {
+          ...metadata,
+          ...additionalMetadata,
+        };
+      }
+
+      data = data.slice(2);
     }
 
     if (requestID) {
       const request = requestStore.get(requestID);
       if (request) {
         const url = new URL(request.url);
-        metadata.__nfmeta.requestPath = url.pathname;
+        metadata.requestPath = url.pathname;
       }
     }
 
-    return logger(JSON.stringify(metadata), ...data);
+    return logger(JSON.stringify({ __nfmeta: metadata }), ...data);
   }
 
   if (functionName) {

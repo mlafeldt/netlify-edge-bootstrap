@@ -13,6 +13,7 @@ enum Headers {
   FeatureFlags = "x-nf-feature-flags",
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   PassthroughTiming = "x-nf-passthrough-timing",
+  DebugLogging = "x-nf-debug-logging",
 }
 
 export default Headers;

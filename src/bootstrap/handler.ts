@@ -4,6 +4,7 @@ import { Logger } from "./log/log_location.ts";
 import { EdgeRequest, getPassthroughTiming } from "./request.ts";
 import Headers from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
+import { logger } from "./system_log.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
@@ -31,6 +32,15 @@ const handleRequest = async (
       );
     }
 
+    if (req.headers.get(Headers.DebugLogging)) {
+      logger
+        .withFields({
+          function_names: functionsHeader,
+        })
+        .withRequestID(id)
+        .log("Started edge function invocation");
+    }
+
     const requestFunctions = functionsHeader.split(",").map((name) => ({
       name,
       function: functions[name],
@@ -44,6 +54,7 @@ const handleRequest = async (
       rawLogger,
       request: edgeReq,
     });
+    const startTime = performance.now();
     const response = await chain.run();
 
     // If we talked to origin and we got a timing header back, let's propagate it to
@@ -51,6 +62,15 @@ const handleRequest = async (
     const passthroughTiming = getPassthroughTiming(edgeReq);
     if (passthroughTiming) {
       response.headers.set(Headers.PassthroughTiming, passthroughTiming);
+    }
+
+    const endTime = performance.now();
+
+    if (req.headers.get(Headers.DebugLogging)) {
+      logger
+        .withFields({ ef_duration: endTime - startTime })
+        .withRequestID(id)
+        .log("Finished edge function invocation");
     }
 
     return response;

@@ -5,13 +5,13 @@ const MAX_BACKOFF_DELAY = 1000;
 const MAX_RETRIES = 3;
 
 // deno-lint-ignore no-explicit-any
-type GenericFunction = (...args: any) => any;
+type RetriedFunction = (retry: number) => any;
 
 interface RetryOptions {
   maxRetries?: number;
 }
 
-export async function backoffRetry<Type extends GenericFunction>(
+export async function backoffRetry<Type extends RetriedFunction>(
   func: Type,
   { maxRetries = MAX_RETRIES }: RetryOptions = {},
 ): Promise<ReturnType<Type>> {
@@ -21,7 +21,7 @@ export async function backoffRetry<Type extends GenericFunction>(
 
   while (retry < maxRetries) {
     try {
-      return await func();
+      return await func(retry);
     } catch (error) {
       retry += 1;
       finalError = error;

@@ -7,6 +7,7 @@ import { CookieStore } from "./cookie_store.ts";
 import { Geo, parseGeoHeader } from "./geo.ts";
 import { instrumentedLog, LogLocation } from "./log/log_location.ts";
 import { parseSiteHeader, Site } from "./site.ts";
+import { logger } from "./system_log.ts";
 import Headers from "./headers.ts";
 import {
   EdgeRequest,
@@ -46,6 +47,7 @@ const INTERNAL_HEADERS = [Headers.IP, Headers.SiteInfo, Headers.AccountInfo];
 class FunctionChain {
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
+  debug: boolean;
   functions: RequestFunction[];
   geo: Geo;
   site: Site;
@@ -53,15 +55,18 @@ class FunctionChain {
   ip: string | null;
   rawLogger?: Logger;
   request: EdgeRequest;
+  requestID: string;
   response: Response;
 
   constructor({ functions, rawLogger, request }: FunctionChainOptions) {
     this.contextNextCalls = [];
+    this.debug = Boolean(request.headers.get(Headers.DebugLogging));
     this.functions = functions;
     this.geo = parseGeoHeader(request.headers.get(Headers.Geo));
     this.ip = request.headers.get(Headers.IP);
     this.rawLogger = rawLogger;
     this.request = request;
+    this.requestID = getRequestID(this.request) ?? "";
     this.response = new Response();
     this.cookies = new CookieStore(this.request);
     this.site = parseSiteHeader(request.headers.get(Headers.SiteInfo));
@@ -77,6 +82,8 @@ class FunctionChain {
   }
 
   async fetchOrigin({ url }: FetchOriginOptions = {}) {
+    const startTime = performance.now();
+
     // We strip the conditional headers if `context.next()` was called and at
     // least one of the calls was missing the `sendConditionalRequest` option.
     const stripConditionalHeaders = this.contextNextCalls.length > 0 &&
@@ -86,9 +93,26 @@ class FunctionChain {
       stripConditionalHeaders,
       url,
     });
-    const res = await backoffRetry(() =>
-      fetch(originReq, { redirect: "manual" })
-    );
+
+    const res = await backoffRetry((retryCount) => {
+      if (this.debug) {
+        const message = retryCount === 0
+          ? "Started edge function request to origin"
+          : "Retrying edge function request to origin";
+
+        logger
+          .withFields({
+            context_next_count: this.contextNextCalls.length,
+            origin_url: url,
+            retry_count: retryCount,
+            strip_conditional_headers: stripConditionalHeaders,
+          })
+          .withRequestID(this.requestID)
+          .log(message);
+      }
+
+      return fetch(originReq, { redirect: "manual" });
+    });
     const originRes = new OriginResponse(res, this.response);
 
     // The edge node will send a header with how much time was spent in going to
@@ -97,6 +121,21 @@ class FunctionChain {
     const passthroughTiming = originRes.headers.get(Headers.PassthroughTiming);
     if (passthroughTiming) {
       setPassthroughTiming(this.request, passthroughTiming);
+    }
+
+    const endTime = performance.now();
+
+    if (this.debug) {
+      logger
+        .withFields({
+          origin_duration: endTime - startTime,
+          origin_status: res.status,
+          origin_url: url,
+        })
+        .withRequestID(this.requestID)
+        .log(
+          "Finished edge function request to origin",
+        );
     }
 
     return originRes;
@@ -117,7 +156,7 @@ class FunctionChain {
           nextOptions: options,
         });
       },
-      requestId: getRequestID(this.request) ?? "",
+      requestId: this.requestID,
       rewrite: this.rewrite.bind(this),
       site: this.site,
       account: this.account,
@@ -135,7 +174,7 @@ class FunctionChain {
         logger,
         data,
         name,
-        getRequestID(this.request) ?? undefined,
+        this.requestID,
       );
     };
   }
@@ -216,7 +255,7 @@ class FunctionChain {
       // stack trace.
       const response = await callWithNamedWrapper(
         () => func.function(this.request, context),
-        LogLocation.serializeRequestID(getRequestID(this.request)),
+        LogLocation.serializeRequestID(this.requestID),
       );
 
       if (response === undefined) {

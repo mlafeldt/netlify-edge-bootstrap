@@ -12,7 +12,9 @@ import Headers from "./headers.ts";
 import {
   EdgeRequest,
   getFeatureFlags,
+  getMode,
   getRequestID,
+  Mode,
   OriginRequest,
   setPassthroughTiming,
 } from "./request.ts";
@@ -45,18 +47,19 @@ interface RunFunctionOptions {
 const INTERNAL_HEADERS = [Headers.IP, Headers.SiteInfo, Headers.AccountInfo];
 
 class FunctionChain {
+  account: Account;
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
   debug: boolean;
   functions: RequestFunction[];
   geo: Geo;
-  site: Site;
-  account: Account;
   ip: string | null;
+  mode: Mode;
   rawLogger?: Logger;
   request: EdgeRequest;
   requestID: string;
   response: Response;
+  site: Site;
 
   constructor({ functions, rawLogger, request }: FunctionChainOptions) {
     this.contextNextCalls = [];
@@ -64,6 +67,7 @@ class FunctionChain {
     this.functions = functions;
     this.geo = parseGeoHeader(request.headers.get(Headers.Geo));
     this.ip = request.headers.get(Headers.IP);
+    this.mode = getMode(request);
     this.rawLogger = rawLogger;
     this.request = request;
     this.requestID = getRequestID(this.request) ?? "";
@@ -149,6 +153,12 @@ class FunctionChain {
       json: this.json.bind(this),
       log: this.getLogFunction(functionIndex),
       next: (options: NextOptions = {}) => {
+        if (this.mode === Mode.AfterCache) {
+          throw new Error(
+            "Edge functions running after the cache cannot use `context.next()`. For more information, visit https://ntl.fyi/edge-after-cache",
+          );
+        }
+
         this.contextNextCalls.push(options);
 
         return this.runFunction({
@@ -204,9 +214,15 @@ class FunctionChain {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
     const requestUrl = new URL(this.request.url);
 
+    if (this.mode === Mode.AfterCache) {
+      throw new Error(
+        "Edge functions running after the cache cannot use `context.rewrite()`. For more information, visit https://ntl.fyi/edge-after-cache",
+      );
+    }
+
     if (newUrl.host !== requestUrl.host) {
       throw new Error(
-        "Edge Functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
+        "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
     }
 
@@ -231,9 +247,17 @@ class FunctionChain {
     const func = this.functions[functionIndex];
     const flags = getFeatureFlags(this.request);
 
-    // If we got to the end of the function chain and the response hasn't been
-    // terminated, we call origin.
+    // We got to the end of the chain and the last function has early-returned.
     if (func === undefined) {
+      // If we're running after the cache, there's not much we can do other
+      // than returning a blank response.
+      if (this.mode === Mode.AfterCache) {
+        return new Response(null, {
+          status: Status.NoContent,
+        });
+      }
+
+      // Return a bypass flag to the edge node, if possible.
       if (canBypass && flags.edge_functions_bootstrap_early_return) {
         return new Response(null, {
           headers: {

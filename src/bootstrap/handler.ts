@@ -1,7 +1,7 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
-import { EdgeRequest, getPassthroughTiming } from "./request.ts";
+import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
 import Headers from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 import { logger } from "./system_log.ts";
@@ -19,12 +19,11 @@ const handleRequest = async (
   const id = req.headers.get(Headers.RequestID);
 
   try {
-    const passthrough = req.headers.get(Headers.Passthrough);
-    const functionsHeader = req.headers.get(Headers.Functions);
+    const functionNames = req.headers.get(Headers.Functions);
 
-    if (passthrough == null || id == null || functionsHeader == null) {
+    if (id == null || functionNames == null) {
       return new Response(
-        "Request must have passthrough header, request ID and request functions",
+        "Request must have headers for request ID and functions names",
         {
           status: 400,
           headers: { "content-type": "text/plain" },
@@ -32,22 +31,23 @@ const handleRequest = async (
       );
     }
 
-    if (req.headers.get(Headers.DebugLogging)) {
-      logger
-        .withFields({
-          function_names: functionsHeader,
-        })
-        .withRequestID(id)
-        .log("Started edge function invocation");
-    }
-
-    const requestFunctions = functionsHeader.split(",").map((name) => ({
+    const requestFunctions = functionNames.split(",").map((name) => ({
       name,
       function: functions[name],
     }));
     const edgeReq = new EdgeRequest(req);
 
     requestStore.set(id, edgeReq);
+
+    if (req.headers.get(Headers.DebugLogging)) {
+      logger
+        .withFields({
+          function_names: functionNames,
+          mode: getMode(edgeReq),
+        })
+        .withRequestID(id)
+        .log("Started edge function invocation");
+    }
 
     const chain = new FunctionChain({
       functions: requestFunctions,

@@ -4,6 +4,11 @@ import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 
 const internals = Symbol("Netlify Internals");
 
+export const enum Mode {
+  BeforeCache,
+  AfterCache,
+}
+
 class EdgeRequest extends Request {
   [internals]: {
     forwardedHost: string | null;
@@ -45,6 +50,9 @@ class EdgeRequest extends Request {
     });
   }
 }
+
+export const getMode = (request: EdgeRequest) =>
+  request[internals].passthrough ? Mode.BeforeCache : Mode.AfterCache;
 
 export const getRequestID = (request: EdgeRequest) =>
   request[internals].requestID;

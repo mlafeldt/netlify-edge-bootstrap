@@ -1,9 +1,9 @@
-type Mode = "before-cache" | "after-cache";
+type Cache = "off" | "manual";
 
 type ConfigFunction = () => ConfigResult | Promise<ConfigResult>;
 
 interface ConfigResult {
-  mode?: Mode;
+  cache?: Cache;
   path?: string;
 }
 

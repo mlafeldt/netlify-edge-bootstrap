@@ -1,7 +1,7 @@
 import { build, LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
 
 import { STAGE1_SPECIFIER, STAGE2_SPECIFIER, virtualRoot } from "../consts.ts";
-import { inlineModule, loadFromVirtualRoot, loadWithRetry } from "./common.ts";
+import { inlineModule, loadFromVirtualRoot, loadWithRetry } from "./lib.ts";
 
 const stage1Entry = `
 import { boot } from "${virtualRoot}src/bootstrap/index-stage1.ts";

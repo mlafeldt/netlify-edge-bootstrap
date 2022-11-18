@@ -8,6 +8,9 @@ export interface Geo {
     code?: string;
     name?: string;
   };
+  timezone?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 export function parseGeoHeader(geoHeader: string | null) {

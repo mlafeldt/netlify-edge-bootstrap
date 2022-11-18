@@ -14,6 +14,7 @@ enum Headers {
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   PassthroughTiming = "x-nf-passthrough-timing",
   DebugLogging = "x-nf-debug-logging",
+  CacheControl = "cache-control",
 }
 
 export default Headers;

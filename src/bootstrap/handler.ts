@@ -73,6 +73,18 @@ const handleRequest = async (
         .log("Finished edge function invocation");
     }
 
+    // Whenever someone invokes an edge function that has cache-control headers set
+    // we log it so we understand the usage better.
+    if (response.headers.has(Headers.CacheControl)) {
+      logger
+        .withFields({
+          ef_cache_control: response.headers.get(Headers.CacheControl),
+          mode: getMode(edgeReq),
+        })
+        .withRequestID(id)
+        .log("Edge function invoked with cache-control header");
+    }
+
     return response;
   } catch (error) {
     let errorString = String(error);

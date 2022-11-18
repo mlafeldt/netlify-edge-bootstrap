@@ -10,7 +10,13 @@ import { Functions, Metadata } from "./stage_2.ts";
 
 export const serve = (functions: Functions, metadata?: Metadata) => {
   const consoleLog = globalThis.console.log;
+
+  // based on https://developer.mozilla.org/en-US/docs/Web/API/console#instance_methods
   globalThis.console.log = patchLogger(globalThis.console.log, metadata);
+  globalThis.console.error = patchLogger(globalThis.console.error, metadata);
+  globalThis.console.debug = patchLogger(globalThis.console.debug, metadata);
+  globalThis.console.warn = patchLogger(globalThis.console.warn, metadata);
+  globalThis.console.info = patchLogger(globalThis.console.info, metadata);
 
   const serveOptions: ServeInit = {};
   const { port } = parse(Deno.args);

@@ -1,7 +1,7 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
-import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
+import { EdgeRequest, getMode, getPassthroughTiming, Mode } from "./request.ts";
 import Headers from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 import { logger } from "./system_log.ts";
@@ -79,7 +79,7 @@ const handleRequest = async (
       logger
         .withFields({
           ef_cache_control: response.headers.get(Headers.CacheControl),
-          mode: getMode(edgeReq),
+          ef_mode: getMode(edgeReq),
         })
         .withRequestID(id)
         .log("Edge function invoked with cache-control header");
@@ -99,6 +99,15 @@ const handleRequest = async (
           stack: error.stack,
         },
       });
+    } else if (environment === "production") {
+      logger
+        .withFields({
+          error_name: error.name,
+          error_message: error.message,
+          error_stack: error.stack,
+        })
+        .withRequestID(id)
+        .log("Edge function error");
     }
 
     return new Response(errorString, {

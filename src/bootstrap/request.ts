@@ -5,8 +5,8 @@ import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 const internals = Symbol("Netlify Internals");
 
 export const enum Mode {
-  BeforeCache,
-  AfterCache,
+  BeforeCache = "before-cache",
+  AfterCache = "after-cache",
 }
 
 class EdgeRequest extends Request {

@@ -1,8 +1,8 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
-import { EdgeRequest, getMode, getPassthroughTiming, Mode } from "./request.ts";
-import Headers from "./headers.ts";
+import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
+import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 import { logger } from "./system_log.ts";
 
@@ -16,10 +16,11 @@ const handleRequest = async (
   functions: Record<string, EdgeFunction>,
   { rawLogger }: HandleRequestOptions = {},
 ) => {
-  const id = req.headers.get(Headers.RequestID);
+  const id = req.headers.get(InternalHeaders.RequestID);
+  const environment = getEnvironment();
 
   try {
-    const functionNames = req.headers.get(Headers.Functions);
+    const functionNames = req.headers.get(InternalHeaders.Functions);
 
     if (id == null || functionNames == null) {
       return new Response(
@@ -39,7 +40,7 @@ const handleRequest = async (
 
     requestStore.set(id, edgeReq);
 
-    if (req.headers.get(Headers.DebugLogging)) {
+    if (req.headers.get(InternalHeaders.DebugLogging)) {
       logger
         .withFields({
           function_names: functionNames,
@@ -61,12 +62,15 @@ const handleRequest = async (
     // the final response.
     const passthroughTiming = getPassthroughTiming(edgeReq);
     if (passthroughTiming) {
-      response.headers.set(Headers.PassthroughTiming, passthroughTiming);
+      response.headers.set(
+        InternalHeaders.PassthroughTiming,
+        passthroughTiming,
+      );
     }
 
     const endTime = performance.now();
 
-    if (req.headers.get(Headers.DebugLogging)) {
+    if (req.headers.get(InternalHeaders.DebugLogging)) {
       logger
         .withFields({ ef_duration: endTime - startTime })
         .withRequestID(id)
@@ -75,21 +79,23 @@ const handleRequest = async (
 
     // Whenever someone invokes an edge function that has cache-control headers set
     // we log it so we understand the usage better.
-    if (response.headers.has(Headers.CacheControl)) {
-      logger
-        .withFields({
-          ef_cache_control: response.headers.get(Headers.CacheControl),
-          ef_mode: getMode(edgeReq),
-        })
-        .withRequestID(id)
-        .log("Edge function invoked with cache-control header");
+    if (environment !== "local") {
+      if (response.headers.has(StandardHeaders.CacheControl)) {
+        logger
+          .withFields({
+            ef_cache_control: response.headers.get(
+              StandardHeaders.CacheControl,
+            ),
+            ef_mode: getMode(edgeReq),
+          })
+          .withRequestID(id)
+          .log("Edge function invoked with cache-control header");
+      }
     }
 
     return response;
   } catch (error) {
     let errorString = String(error);
-
-    const environment = getEnvironment();
 
     if (environment === "local") {
       errorString = JSON.stringify({
@@ -107,13 +113,13 @@ const handleRequest = async (
           error_stack: error.stack,
         })
         .withRequestID(id)
-        .log("Edge function error");
+        .log("uncaught exception while handling request");
     }
 
     return new Response(errorString, {
       status: 500,
       headers: {
-        [Headers.UncaughtError]: "1",
+        [InternalHeaders.UncaughtError]: "1",
       },
     });
   } finally {

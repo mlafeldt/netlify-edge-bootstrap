@@ -8,7 +8,7 @@ import { Geo, parseGeoHeader } from "./geo.ts";
 import { instrumentedLog, LogLocation } from "./log/log_location.ts";
 import { parseSiteHeader, Site } from "./site.ts";
 import { logger } from "./system_log.ts";
-import Headers from "./headers.ts";
+import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
 import {
   EdgeRequest,
   getFeatureFlags,
@@ -44,7 +44,11 @@ interface RunFunctionOptions {
   nextOptions?: NextOptions;
 }
 
-const INTERNAL_HEADERS = [Headers.IP, Headers.SiteInfo, Headers.AccountInfo];
+const INTERNAL_HEADERS = [
+  InternalHeaders.IP,
+  InternalHeaders.SiteInfo,
+  InternalHeaders.AccountInfo,
+];
 
 class FunctionChain {
   account: Account;
@@ -53,6 +57,7 @@ class FunctionChain {
   debug: boolean;
   functions: RequestFunction[];
   geo: Geo;
+  initialHeaders: Headers;
   ip: string | null;
   mode: Mode;
   rawLogger?: Logger;
@@ -63,20 +68,24 @@ class FunctionChain {
 
   constructor({ functions, rawLogger, request }: FunctionChainOptions) {
     this.contextNextCalls = [];
-    this.debug = Boolean(request.headers.get(Headers.DebugLogging));
+    this.debug = Boolean(request.headers.get(InternalHeaders.DebugLogging));
     this.functions = functions;
-    this.geo = parseGeoHeader(request.headers.get(Headers.Geo));
-    this.ip = request.headers.get(Headers.IP);
+    this.geo = parseGeoHeader(request.headers.get(InternalHeaders.Geo));
+    this.ip = request.headers.get(InternalHeaders.IP);
     this.mode = getMode(request);
     this.rawLogger = rawLogger;
     this.request = request;
     this.requestID = getRequestID(this.request) ?? "";
     this.response = new Response();
     this.cookies = new CookieStore(this.request);
-    this.site = parseSiteHeader(request.headers.get(Headers.SiteInfo));
-    this.account = parseAccountHeader(request.headers.get(Headers.AccountInfo));
+    this.site = parseSiteHeader(request.headers.get(InternalHeaders.SiteInfo));
+    this.account = parseAccountHeader(
+      request.headers.get(InternalHeaders.AccountInfo),
+    );
 
     this.stripInternalHeaders();
+
+    this.initialHeaders = new Headers(this.request.headers);
   }
 
   private stripInternalHeaders() {
@@ -122,7 +131,9 @@ class FunctionChain {
     // The edge node will send a header with how much time was spent in going to
     // origin. We attach it to the request so that we can attach it to the final response
     // later.
-    const passthroughTiming = originRes.headers.get(Headers.PassthroughTiming);
+    const passthroughTiming = originRes.headers.get(
+      InternalHeaders.PassthroughTiming,
+    );
     if (passthroughTiming) {
       setPassthroughTiming(this.request, passthroughTiming);
     }
@@ -187,6 +198,13 @@ class FunctionChain {
         this.requestID,
       );
     };
+  }
+
+  hasMutatedHeaders() {
+    const headersA = serializeHeaders(this.initialHeaders);
+    const headersB = serializeHeaders(this.request.headers);
+
+    return headersA !== headersB;
   }
 
   json(input: unknown, init?: ResponseInit) {
@@ -261,7 +279,7 @@ class FunctionChain {
       if (canBypass && flags.edge_functions_bootstrap_early_return) {
         return new Response(null, {
           headers: {
-            [Headers.EdgeFunctionBypass]: "1",
+            [InternalHeaders.EdgeFunctionBypass]: "1",
           },
           status: Status.NoContent,
         });
@@ -291,8 +309,11 @@ class FunctionChain {
         //    we must return the full response as it may get transformed
         // 2. The request doesn't have a body — if it does, it's already been
         //    consumed and our edge node won't be able to process it further
+        // 3. The request headers haven't been mutated — if they have, we'd
+        //    have to send the new headers as part of the bypass signal so
+        //    that they're added in our edge node
         const canBypass = nextOptions === undefined &&
-          this.request.body === null;
+          this.request.body === null && !this.hasMutatedHeaders();
 
         return this.runFunction({
           canBypass,

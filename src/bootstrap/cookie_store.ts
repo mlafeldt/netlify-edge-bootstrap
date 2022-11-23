@@ -80,7 +80,12 @@ class CookieStore {
   }
 
   set(cookie: Cookie) {
+    this.validate(cookie);
     this.ops.push({ cookie, type: "set" });
+  }
+
+  private validate(cookie: Cookie) {
+    setCookie(new Headers(), cookie); // throws if invalid
   }
 }
 

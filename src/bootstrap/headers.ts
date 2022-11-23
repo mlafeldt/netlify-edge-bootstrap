@@ -1,4 +1,4 @@
-enum Headers {
+export enum InternalHeaders {
   Geo = "x-nf-geo",
   SiteInfo = "x-nf-site-info",
   AccountInfo = "x-nf-account-info",
@@ -14,10 +14,11 @@ enum Headers {
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   PassthroughTiming = "x-nf-passthrough-timing",
   DebugLogging = "x-nf-debug-logging",
-  CacheControl = "cache-control",
 }
 
-export default Headers;
+export enum StandardHeaders {
+  CacheControl = "cache-control",
+}
 
 export const conditionals = [
   "if-match",
@@ -26,3 +27,13 @@ export const conditionals = [
   "if-unmodified-since",
   "if-range",
 ];
+
+export const serialize = (headers: Headers) => {
+  const headersObj: Record<string, string> = {};
+
+  headers.forEach((value, key) => {
+    headersObj[key] = value;
+  });
+
+  return JSON.stringify(headersObj);
+};

@@ -1,5 +1,8 @@
 import { getEnvironment } from "./environment.ts";
-import NFHeaders, { conditionals as conditionalHeaders } from "./headers.ts";
+import {
+  conditionals as conditionalHeaders,
+  InternalHeaders,
+} from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 
 const internals = Symbol("Netlify Internals");
@@ -27,24 +30,24 @@ class EdgeRequest extends Request {
     super(requestInfo, init);
 
     this[internals] = {
-      forwardedHost: this.headers.get(NFHeaders.ForwardedHost),
-      forwardedProtocol: this.headers.get(NFHeaders.ForwardedProtocol),
-      passthrough: this.headers.get(NFHeaders.Passthrough),
-      passthroughHost: this.headers.get(NFHeaders.PassthroughHost),
-      requestID: this.headers.get(NFHeaders.RequestID),
-      ip: this.headers.get(NFHeaders.IP),
+      forwardedHost: this.headers.get(InternalHeaders.ForwardedHost),
+      forwardedProtocol: this.headers.get(InternalHeaders.ForwardedProtocol),
+      passthrough: this.headers.get(InternalHeaders.Passthrough),
+      passthroughHost: this.headers.get(InternalHeaders.PassthroughHost),
+      requestID: this.headers.get(InternalHeaders.RequestID),
+      ip: this.headers.get(InternalHeaders.IP),
       featureFlags: parseFeatureFlagsHeader(
-        this.headers.get(NFHeaders.FeatureFlags),
+        this.headers.get(InternalHeaders.FeatureFlags),
       ),
     };
 
     [
-      NFHeaders.ForwardedHost,
-      NFHeaders.ForwardedProtocol,
-      NFHeaders.Functions,
-      NFHeaders.Passthrough,
-      NFHeaders.PassthroughHost,
-      NFHeaders.FeatureFlags,
+      InternalHeaders.ForwardedHost,
+      InternalHeaders.ForwardedProtocol,
+      InternalHeaders.Functions,
+      InternalHeaders.Passthrough,
+      InternalHeaders.PassthroughHost,
+      InternalHeaders.FeatureFlags,
     ].forEach((header) => {
       this.headers.delete(header);
     });
@@ -104,11 +107,11 @@ class OriginRequest extends EdgeRequest {
     super(new Request(url.toString(), req));
 
     if (passthroughHeader !== null) {
-      this.headers.set(NFHeaders.Passthrough, passthroughHeader);
+      this.headers.set(InternalHeaders.Passthrough, passthroughHeader);
     }
 
     if (requestIDHeader !== null) {
-      this.headers.set(NFHeaders.RequestID, requestIDHeader);
+      this.headers.set(InternalHeaders.RequestID, requestIDHeader);
     }
 
     if (stripConditionalHeaders) {

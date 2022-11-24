@@ -7,7 +7,7 @@ import { CookieStore } from "./cookie_store.ts";
 import { Geo, parseGeoHeader } from "./geo.ts";
 import { instrumentedLog, LogLocation } from "./log/log_location.ts";
 import { parseSiteHeader, Site } from "./site.ts";
-import { logger } from "./system_log.ts";
+import { logger } from "./log/logger.ts";
 import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
 import {
   EdgeRequest,

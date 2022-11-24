@@ -1,10 +1,10 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
+import { logger } from "./log/logger.ts";
 import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
-import { logger } from "./system_log.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;

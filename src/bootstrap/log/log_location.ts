@@ -2,7 +2,8 @@ import "./types.ts";
 import { getEnvironment } from "../environment.ts";
 import { FunctionMetadata, Metadata } from "../stage_2.ts";
 import { requestStore } from "../handler.ts";
-import { systemLogSymbol } from "../system_log.ts";
+import { StructuredLogger } from "./logger.ts";
+
 export class LogLocation extends Error {
   private functions: Map<string, string>;
 
@@ -114,17 +115,27 @@ export const instrumentedLog = (
       requestID: requestID,
     };
 
-    if (data[0] === systemLogSymbol) {
-      if (typeof data[1] === "object") {
-        const additionalMetadata = data[1] as NetlifyMetadata;
+    if (data[0] instanceof StructuredLogger) {
+      const { fields, message, requestID } = data[0].serialize();
 
-        metadata = {
-          ...metadata,
-          ...additionalMetadata,
-        };
+      if (requestID) {
+        metadata.requestID = requestID;
       }
 
-      data = data.slice(2);
+      if (Object.keys(fields).length === 0) {
+        metadata.type = "system";
+
+        data = [message];
+      } else {
+        metadata.type = "systemJSON";
+
+        const payload = {
+          __nfmessage: message,
+          ...fields,
+        };
+
+        data = [JSON.stringify(payload)];
+      }
     }
 
     if (requestID) {

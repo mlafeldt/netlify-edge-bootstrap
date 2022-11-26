@@ -99,6 +99,7 @@ export interface NetlifyMetadata {
   requestID?: string;
   requestPath?: string;
   type?: LogType;
+  url?: string;
 }
 
 export const instrumentedLog = (
@@ -110,7 +111,7 @@ export const instrumentedLog = (
   const environment = getEnvironment();
 
   if (environment === "production") {
-    let metadata: NetlifyMetadata = {
+    const metadata: NetlifyMetadata = {
       edgeFunctionName: functionName,
       requestID: requestID,
     };
@@ -143,6 +144,7 @@ export const instrumentedLog = (
       if (request) {
         const url = new URL(request.url);
         metadata.requestPath = url.pathname;
+        metadata.url = url.toString();
       }
     }
 

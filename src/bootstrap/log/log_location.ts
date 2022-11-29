@@ -151,6 +151,12 @@ export const instrumentedLog = (
     return logger(JSON.stringify({ __nfmeta: metadata }), ...data);
   }
 
+  // If this is a system log and we're not in the production environment, we
+  // want to discard the message.
+  if (data[0] instanceof StructuredLogger) {
+    return;
+  }
+
   if (functionName) {
     return logger(`[${functionName}]`, ...data);
   }

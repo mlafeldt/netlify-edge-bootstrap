@@ -10,7 +10,13 @@ interface Context {
   ip: string;
   json: FunctionChain["json"];
   log: ReturnType<FunctionChain["getLogFunction"]>;
-  next: (options?: NextOptions) => Promise<Response>;
+
+  next(options?: NextOptions): Promise<Response>;
+  /**
+   * @param request `Request` to be passed down the request chain. Defaults to the original `request` object passed into the Edge Function.
+   */
+  next(request: Request, options?: NextOptions): Promise<Response>;
+
   requestId: string;
   rewrite: FunctionChain["rewrite"];
   site: Site;

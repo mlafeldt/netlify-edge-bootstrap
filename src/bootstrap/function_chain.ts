@@ -10,6 +10,7 @@ import { parseSiteHeader, Site } from "./site.ts";
 import { logger } from "./log/logger.ts";
 import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
 import {
+  clone,
   EdgeRequest,
   getFeatureFlags,
   getMode,
@@ -156,6 +157,38 @@ class FunctionChain {
     return originRes;
   }
 
+  contextNext(
+    functionIndex: number,
+    newRequest?: Request,
+    options: NextOptions = {},
+  ) {
+    if (this.mode === Mode.AfterCache) {
+      throw new Error(
+        "Edge functions running after the cache cannot use `context.next()`. For more information, visit https://ntl.fyi/edge-after-cache",
+      );
+    }
+
+    if (
+      newRequest &&
+      new URL(newRequest.url).host !== new URL(this.request.url).host
+    ) {
+      throw new Error(
+        "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
+      );
+    }
+
+    this.contextNextCalls.push(options);
+
+    if (newRequest) {
+      this.request = clone(this.request, newRequest);
+    }
+
+    return this.runFunction({
+      functionIndex: functionIndex + 1,
+      nextOptions: options,
+    });
+  }
+
   getContext(functionIndex: number) {
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
@@ -163,19 +196,15 @@ class FunctionChain {
       ip: this.ip ?? "",
       json: this.json.bind(this),
       log: this.getLogFunction(functionIndex),
-      next: (options: NextOptions = {}) => {
-        if (this.mode === Mode.AfterCache) {
-          throw new Error(
-            "Edge functions running after the cache cannot use `context.next()`. For more information, visit https://ntl.fyi/edge-after-cache",
-          );
+      next: (
+        reqOrOptions?: Request | NextOptions,
+        options: NextOptions = {},
+      ) => {
+        if (reqOrOptions instanceof Request) {
+          return this.contextNext(functionIndex, reqOrOptions, options);
         }
 
-        this.contextNextCalls.push(options);
-
-        return this.runFunction({
-          functionIndex: functionIndex + 1,
-          nextOptions: options,
-        });
+        return this.contextNext(functionIndex, undefined, reqOrOptions);
       },
       requestId: this.requestID,
       rewrite: this.rewrite.bind(this),
@@ -276,7 +305,9 @@ class FunctionChain {
       }
 
       // Return a bypass flag to the edge node, if possible.
-      if (canBypass && flags.edge_functions_bootstrap_early_return) {
+      if (
+        canBypass && flags.edge_functions_bootstrap_early_return
+      ) {
         return new Response(null, {
           headers: {
             [InternalHeaders.EdgeFunctionBypass]: "1",

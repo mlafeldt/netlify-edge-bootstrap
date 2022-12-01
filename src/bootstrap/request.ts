@@ -54,6 +54,12 @@ class EdgeRequest extends Request {
   }
 }
 
+const clone = (edgeRequest: EdgeRequest, request?: Request) => {
+  const newEdgeRequest = new EdgeRequest(request ?? edgeRequest);
+  newEdgeRequest[internals] = edgeRequest[internals];
+  return newEdgeRequest;
+};
+
 export const getMode = (request: EdgeRequest) =>
   request[internals].passthrough ? Mode.BeforeCache : Mode.AfterCache;
 
@@ -122,4 +128,4 @@ class OriginRequest extends EdgeRequest {
   }
 }
 
-export { EdgeRequest, OriginRequest };
+export { clone, EdgeRequest, OriginRequest };

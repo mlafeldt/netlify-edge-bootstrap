@@ -170,7 +170,7 @@ class FunctionChain {
 
     if (
       newRequest &&
-      new URL(newRequest.url).host !== new URL(this.request.url).host
+      new URL(newRequest.url).origin !== new URL(this.request.url).origin
     ) {
       throw new Error(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
@@ -267,7 +267,7 @@ class FunctionChain {
       );
     }
 
-    if (newUrl.host !== requestUrl.host) {
+    if (newUrl.origin !== requestUrl.origin) {
       throw new Error(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );

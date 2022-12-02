@@ -87,7 +87,7 @@ interface OriginRequestOptions {
   url?: URL;
 }
 
-class OriginRequest extends EdgeRequest {
+class OriginRequest extends Request {
   constructor({
     req,
     stripConditionalHeaders = false,

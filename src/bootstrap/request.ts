@@ -110,7 +110,15 @@ class OriginRequest extends Request {
     // should use for the origin call.
     url.host = req[internals].passthroughHost ?? url.host;
 
-    super(new Request(url.toString(), req));
+    let reqInit: Request = req;
+    if (req.body && req.bodyUsed) {
+      console.warn(
+        "Request body already used. To use the body in further processing, pass the request to `context.next()`. See https://ntl.fyi/request-body-used for more information.",
+      );
+      reqInit = new Request(req, { body: "" });
+    }
+
+    super(new Request(url.toString(), reqInit));
 
     if (passthroughHeader !== null) {
       this.headers.set(InternalHeaders.Passthrough, passthroughHeader);

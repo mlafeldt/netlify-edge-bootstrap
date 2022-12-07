@@ -97,7 +97,6 @@ type LogType = "system" | "systemJSON";
 export interface NetlifyMetadata {
   edgeFunctionName?: string;
   requestID?: string;
-  requestPath?: string;
   type?: LogType;
   url?: string;
 }
@@ -139,11 +138,10 @@ export const instrumentedLog = (
       }
     }
 
-    if (requestID) {
-      const request = requestStore.get(requestID);
+    if (metadata.requestID) {
+      const request = requestStore.get(metadata.requestID);
       if (request) {
         const url = new URL(request.url);
-        metadata.requestPath = url.pathname;
         metadata.url = url.toString();
       }
     }

@@ -9,6 +9,10 @@ interface Context {
   geo: Geo;
   ip: string;
   json: FunctionChain["json"];
+
+  /**
+   * @deprecated Use `console.log` instead.
+   */
   log: ReturnType<FunctionChain["getLogFunction"]>;
 
   next(options?: NextOptions): Promise<Response>;

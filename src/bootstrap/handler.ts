@@ -3,7 +3,7 @@ import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
 import { logger } from "./log/logger.ts";
 import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
-import { InternalHeaders, StandardHeaders } from "./headers.ts";
+import { InternalHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 
 interface HandleRequestOptions {
@@ -77,43 +77,42 @@ const handleRequest = async (
         .log("Finished edge function invocation");
     }
 
-    // Whenever someone invokes an edge function that has cache-control headers set
-    // we log it so we understand the usage better.
-    if (environment !== "local") {
-      if (response.headers.has(StandardHeaders.CacheControl)) {
-        logger
-          .withFields({
-            ef_cache_control: response.headers.get(
-              StandardHeaders.CacheControl,
-            ),
-            ef_mode: getMode(edgeReq),
-          })
-          .withRequestID(id)
-          .log("Edge function invoked with cache-control header");
-      }
-    }
-
     return response;
   } catch (error) {
     let errorString = String(error);
 
     if (environment === "local") {
-      errorString = JSON.stringify({
-        error: {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-        },
-      });
+      if (error instanceof Error) {
+        errorString = JSON.stringify({
+          error: {
+            name: error.name,
+            message: error.message,
+            stack: error.stack,
+            cause: String(error.cause),
+          },
+        });
+      } else {
+        errorString = JSON.stringify({ error: String(error) });
+      }
     } else if (environment === "production") {
-      logger
-        .withFields({
+      let fields: Record<string, string | undefined> = {};
+
+      if (error instanceof Error) {
+        fields = {
           error_name: error.name,
           error_message: error.message,
           error_stack: error.stack,
-        })
-        .withRequestID(id)
-        .log("uncaught exception while handling request");
+          error_cause: String(error.cause),
+        };
+      } else {
+        fields = {
+          error_message: String(error),
+        };
+      }
+
+      logger.withFields(fields).withRequestID(id).log(
+        "uncaught exception while handling request",
+      );
     }
 
     return new Response(errorString, {

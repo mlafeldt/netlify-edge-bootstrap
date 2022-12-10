@@ -16,10 +16,6 @@ export enum InternalHeaders {
   DebugLogging = "x-nf-debug-logging",
 }
 
-export enum StandardHeaders {
-  CacheControl = "cache-control",
-}
-
 export const conditionals = [
   "if-match",
   "if-none-match",

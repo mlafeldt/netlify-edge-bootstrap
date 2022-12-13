@@ -108,7 +108,7 @@ class FunctionChain {
       url,
     });
 
-    const res = await backoffRetry((retryCount) => {
+    const res = await backoffRetry(async (retryCount) => {
       if (this.debug) {
         const message = retryCount === 0
           ? "Started edge function request to origin"
@@ -124,8 +124,16 @@ class FunctionChain {
           .withRequestID(this.requestID)
           .log(message);
       }
-
-      return fetch(originReq, { redirect: "manual" });
+      try {
+        return await fetch(originReq, { redirect: "manual" });
+      } catch (error) {
+        throw new Error(
+          "There was an internal error while processing your request",
+          {
+            cause: error,
+          },
+        );
+      }
     });
     const originRes = new OriginResponse(res, this.response);
 

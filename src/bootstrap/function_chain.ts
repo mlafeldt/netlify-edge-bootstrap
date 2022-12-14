@@ -255,11 +255,7 @@ class FunctionChain {
 
   makeURL(urlPath: string) {
     if (urlPath.startsWith("/")) {
-      const url = new URL(this.request.url);
-
-      url.pathname = urlPath;
-
-      return url;
+      return new URL(urlPath, this.request.url);
     }
 
     return new URL(urlPath);

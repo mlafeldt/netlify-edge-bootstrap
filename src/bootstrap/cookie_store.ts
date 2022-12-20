@@ -3,7 +3,7 @@ import {
   deleteCookie,
   getCookies,
   setCookie,
-} from "https://deno.land/std@0.114.0/http/cookie.ts";
+} from "https://deno.land/std@0.170.0/http/cookie.ts";
 
 interface Cookies {
   delete: CookieStore["delete"];

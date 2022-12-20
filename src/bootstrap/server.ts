@@ -1,8 +1,8 @@
-import { parse } from "https://deno.land/std@0.136.0/flags/mod.ts";
+import { parse } from "https://deno.land/std@0.170.0/flags/mod.ts";
 import {
   serve as denoServe,
   ServeInit,
-} from "https://deno.land/std@0.136.0/http/server.ts";
+} from "https://deno.land/std@0.170.0/http/server.ts";
 
 import { handleRequest } from "./handler.ts";
 import { patchLogger } from "./log/log_location.ts";

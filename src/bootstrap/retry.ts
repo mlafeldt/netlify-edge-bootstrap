@@ -1,4 +1,4 @@
-import { delay } from "https://deno.land/std@0.136.0/async/mod.ts";
+import { delay } from "https://deno.land/std@0.170.0/async/mod.ts";
 
 const INITIAL_BACKOFF_DELAY = 5;
 const MAX_BACKOFF_DELAY = 1000;

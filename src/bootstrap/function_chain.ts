@@ -1,4 +1,4 @@
-import { Status } from "https://deno.land/std@0.136.0/http/http_status.ts";
+import { Status } from "https://deno.land/std@0.170.0/http/http_status.ts";
 
 import { Account, parseAccountHeader } from "./account.ts";
 import type { Context, NextOptions } from "./context.ts";

@@ -10,9 +10,9 @@ import { parseSiteHeader, Site } from "./site.ts";
 import { logger } from "./log/logger.ts";
 import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
 import {
+  acceptsBypass,
   clone,
   EdgeRequest,
-  getFeatureFlags,
   getMode,
   getRequestID,
   Mode,
@@ -296,7 +296,6 @@ class FunctionChain {
     nextOptions,
   }: RunFunctionOptions): Promise<Response> {
     const func = this.functions[functionIndex];
-    const flags = getFeatureFlags(this.request);
 
     // We got to the end of the chain and the last function has early-returned.
     if (func === undefined) {
@@ -310,7 +309,7 @@ class FunctionChain {
 
       // Return a bypass flag to the edge node, if possible.
       if (
-        canBypass && flags.edge_functions_bootstrap_early_return
+        acceptsBypass(this.request) && canBypass
       ) {
         return new Response(null, {
           headers: {

@@ -22,6 +22,7 @@ class EdgeRequest extends Request {
     ip: string | null;
     featureFlags: FeatureFlags;
     passthroughTiming?: string;
+    acceptsBypass?: boolean;
   };
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
@@ -39,6 +40,7 @@ class EdgeRequest extends Request {
       featureFlags: parseFeatureFlagsHeader(
         this.headers.get(InternalHeaders.FeatureFlags),
       ),
+      acceptsBypass: this.headers.has(InternalHeaders.EdgeFunctionBypass),
     };
 
     [
@@ -48,6 +50,7 @@ class EdgeRequest extends Request {
       InternalHeaders.Passthrough,
       InternalHeaders.PassthroughHost,
       InternalHeaders.FeatureFlags,
+      InternalHeaders.EdgeFunctionBypass,
     ].forEach((header) => {
       this.headers.delete(header);
     });
@@ -68,6 +71,9 @@ export const getRequestID = (request: EdgeRequest) =>
 
 export const getPassthroughTiming = (request: EdgeRequest) =>
   request[internals].passthroughTiming;
+
+export const acceptsBypass = (request: EdgeRequest) =>
+  request[internals].acceptsBypass;
 
 export const setPassthroughTiming = (request: EdgeRequest, value: string) => {
   request[internals].passthroughTiming = value;

@@ -1,10 +1,6 @@
 type Cache = "off" | "manual";
 
-type ConfigFunction = () => ConfigResult | Promise<ConfigResult>;
-
-interface ConfigResult {
+export interface Config {
   cache?: Cache;
   path?: string;
 }
-
-export type Config = ConfigFunction;

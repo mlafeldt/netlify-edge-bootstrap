@@ -40,7 +40,8 @@ class EdgeRequest extends Request {
       featureFlags: parseFeatureFlagsHeader(
         this.headers.get(InternalHeaders.FeatureFlags),
       ),
-      acceptsBypass: this.headers.has(InternalHeaders.EdgeFunctionBypass),
+      acceptsBypass:
+        this.headers.get(InternalHeaders.EdgeFunctionBypass) === "1",
     };
 
     [

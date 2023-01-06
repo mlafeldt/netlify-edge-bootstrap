@@ -8,6 +8,10 @@ interface Context {
   cookies: Cookies;
   geo: Geo;
   ip: string;
+
+  /**
+   * @deprecated Use [`Response.json`](https://fetch.spec.whatwg.org/#ref-for-dom-response-json①) instead.
+   */
   json: FunctionChain["json"];
 
   /**

@@ -92,7 +92,7 @@ export class LogLocation extends Error {
   }
 }
 
-type LogType = "system" | "systemJSON";
+type LogType = "systemJSON";
 
 export interface NetlifyMetadata {
   edgeFunctionName?: string;
@@ -122,20 +122,14 @@ export const instrumentedLog = (
         metadata.requestID = requestID;
       }
 
-      if (Object.keys(fields).length === 0) {
-        metadata.type = "system";
+      metadata.type = "systemJSON";
 
-        data = [message];
-      } else {
-        metadata.type = "systemJSON";
+      const payload = {
+        __nfmessage: message,
+        ...fields,
+      };
 
-        const payload = {
-          __nfmessage: message,
-          ...fields,
-        };
-
-        data = [JSON.stringify(payload)];
-      }
+      data = [JSON.stringify(payload)];
     }
 
     if (metadata.requestID) {

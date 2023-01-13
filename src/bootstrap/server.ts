@@ -18,7 +18,11 @@ export const serve = (functions: Functions, metadata?: Metadata) => {
   globalThis.console.warn = patchLogger(globalThis.console.warn, metadata);
   globalThis.console.info = patchLogger(globalThis.console.info, metadata);
 
-  const serveOptions: ServeInit = {};
+  const serveOptions: ServeInit = {
+    // Adding a no-op listener to avoid the default one, which prints a message
+    // we don't want.
+    onListen() {},
+  };
   const { port } = parse(Deno.args);
 
   if (port) {

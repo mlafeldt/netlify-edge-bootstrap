@@ -4,6 +4,7 @@ import {
   InternalHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
+import { logger } from "./log/logger.ts";
 
 const internals = Symbol("Netlify Internals");
 
@@ -44,11 +45,20 @@ class EdgeRequest extends Request {
         this.headers.get(InternalHeaders.EdgeFunctionBypass) === "1",
     };
 
+    if (!this[internals].passthrough) {
+      this[internals].passthrough = this.headers.get(
+        InternalHeaders.DenoPassthrough,
+      );
+      logger.log("x-deno-pass header used");
+    }
+
     [
       InternalHeaders.ForwardedHost,
       InternalHeaders.ForwardedProtocol,
-      InternalHeaders.Functions,
+      InternalHeaders.EdgeFunctions,
+      InternalHeaders.DenoFunctions,
       InternalHeaders.Passthrough,
+      InternalHeaders.DenoPassthrough,
       InternalHeaders.PassthroughHost,
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
@@ -128,7 +138,10 @@ class OriginRequest extends Request {
     super(new Request(url.toString(), reqInit));
 
     if (passthroughHeader !== null) {
+      // during the renaming process, will expect one of the two.
+      // if something goes wrong, it's better to send both for now.
       this.headers.set(InternalHeaders.Passthrough, passthroughHeader);
+      this.headers.set(InternalHeaders.DenoPassthrough, passthroughHeader);
     }
 
     if (requestIDHeader !== null) {

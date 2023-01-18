@@ -20,7 +20,11 @@ const handleRequest = async (
   const environment = getEnvironment();
 
   try {
-    const functionNames = req.headers.get(InternalHeaders.Functions);
+    let functionNames = req.headers.get(InternalHeaders.EdgeFunctions);
+    if (!functionNames) {
+      functionNames = req.headers.get(InternalHeaders.DenoFunctions);
+      logger.log("x-deno-functions header used");
+    }
 
     if (id == null || functionNames == null) {
       return new Response(

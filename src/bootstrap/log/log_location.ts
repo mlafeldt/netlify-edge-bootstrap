@@ -3,6 +3,7 @@ import { getEnvironment } from "../environment.ts";
 import { FunctionMetadata, Metadata } from "../stage_2.ts";
 import { requestStore } from "../handler.ts";
 import { StructuredLogger } from "./logger.ts";
+import { InternalHeaders } from "../headers.ts";
 
 export class LogLocation extends Error {
   private functions: Map<string, string>;
@@ -143,10 +144,18 @@ export const instrumentedLog = (
     return logger(JSON.stringify({ __nfmeta: metadata }), ...data);
   }
 
-  // If this is a system log and we're not in the production environment, we
-  // want to discard the message.
+  // If this is a system log and we're not in the production environment,
+  // we only want to print it when debug logging is enabled.
   if (data[0] instanceof StructuredLogger) {
-    return;
+    const structuredLogger = data[0].serialize();
+    const request = requestStore.get(
+      structuredLogger.requestID ?? requestID ?? "",
+    );
+    if (!request?.headers.has(InternalHeaders.DebugLogging)) {
+      return;
+    }
+
+    data = [structuredLogger.message, structuredLogger.fields];
   }
 
   if (functionName) {

@@ -2,9 +2,15 @@ import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { Logger } from "./log/log_location.ts";
 import { logger } from "./log/logger.ts";
-import { EdgeRequest, getMode, getPassthroughTiming } from "./request.ts";
-import { InternalHeaders } from "./headers.ts";
+import {
+  EdgeRequest,
+  getMode,
+  getPassthroughTiming,
+  hasFeatureFlag,
+} from "./request.ts";
+import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
+import { isCacheable } from "./cache.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
@@ -31,7 +37,7 @@ const handleRequest = async (
         "Request must have headers for request ID and functions names",
         {
           status: 400,
-          headers: { "content-type": "text/plain" },
+          headers: { [StandardHeaders.ContentType]: "text/plain" },
         },
       );
     }
@@ -79,6 +85,22 @@ const handleRequest = async (
         .withFields({ ef_duration: endTime - startTime })
         .withRequestID(id)
         .log("Finished edge function invocation");
+    }
+
+    const cacheControl = response.headers.get(StandardHeaders.CacheControl);
+    const shouldLogCacheControl = hasFeatureFlag(
+      edgeReq,
+      "edge_functions_bootstrap_log_cache_control",
+    );
+
+    if (shouldLogCacheControl && isCacheable(cacheControl)) {
+      logger
+        .withFields({
+          cache_control: cacheControl,
+          mode: getMode(edgeReq),
+        })
+        .withRequestID(id)
+        .log("Edge function returned cacheable cache-control headers");
     }
 
     return response;

@@ -20,6 +20,11 @@ export enum InternalHeaders {
   DebugLogging = "x-nf-debug-logging",
 }
 
+export enum StandardHeaders {
+  CacheControl = "cache-control",
+  ContentType = "content-type",
+}
+
 export const conditionals = [
   "if-match",
   "if-none-match",

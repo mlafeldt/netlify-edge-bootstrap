@@ -104,6 +104,15 @@ interface OriginRequestOptions {
   url?: URL;
 }
 
+/**
+ * Evaluates a specific feature flag for a request.
+ */
+export const hasFeatureFlag = (request: EdgeRequest, flagName: string) => {
+  const flags = getFeatureFlags(request);
+
+  return Boolean(flags[flagName]);
+};
+
 class OriginRequest extends Request {
   constructor({
     req,

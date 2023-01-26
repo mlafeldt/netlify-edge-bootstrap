@@ -1,4 +1,4 @@
-#!/usr/bin/env -S deno run --allow-read=. --allow-write=. --allow-net=deno.land --no-check
+#!/usr/bin/env -S deno run --allow-read=. --allow-write=. --allow-net --no-check
 
 // Netlify serializes all JS/TS code into two eszip files (stage 1 + 2) and
 // deploys the result via Deno Deploy Subhosting, which (unlike Deno) can load

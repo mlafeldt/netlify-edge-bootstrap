@@ -5,11 +5,7 @@ export enum InternalHeaders {
   ForwardedHost = "x-forwarded-host",
   ForwardedProtocol = "x-forwarded-proto",
   EdgeFunctions = "x-nf-edge-functions",
-  /** @deprecated */
-  DenoFunctions = "x-deno-functions",
   Passthrough = "x-nf-passthrough",
-  /** @deprecated */
-  DenoPassthrough = "x-deno-pass",
   PassthroughHost = "x-nf-passthrough-host",
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",

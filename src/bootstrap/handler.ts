@@ -4,6 +4,7 @@ import { Logger } from "./log/log_location.ts";
 import { logger } from "./log/logger.ts";
 import {
   EdgeRequest,
+  getFeatureFlags,
   getMode,
   getPassthroughTiming,
   hasFeatureFlag,
@@ -26,11 +27,7 @@ const handleRequest = async (
   const environment = getEnvironment();
 
   try {
-    let functionNames = req.headers.get(InternalHeaders.EdgeFunctions);
-    if (!functionNames) {
-      functionNames = req.headers.get(InternalHeaders.DenoFunctions);
-      logger.log("x-deno-functions header used");
-    }
+    const functionNames = req.headers.get(InternalHeaders.EdgeFunctions);
 
     if (id == null || functionNames == null) {
       return new Response(
@@ -53,6 +50,7 @@ const handleRequest = async (
     if (req.headers.get(InternalHeaders.DebugLogging)) {
       logger
         .withFields({
+          feature_flags: Object.keys(getFeatureFlags(edgeReq)),
           function_names: functionNames,
           mode: getMode(edgeReq),
         })

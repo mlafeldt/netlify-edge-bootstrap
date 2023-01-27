@@ -5,7 +5,7 @@ import type { Context, NextOptions } from "./context.ts";
 import type { EdgeFunction } from "./edge_function.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { Geo, parseGeoHeader } from "./geo.ts";
-import { instrumentedLog, LogLocation } from "./log/log_location.ts";
+import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { parseSiteHeader, Site } from "./site.ts";
 import { logger } from "./log/logger.ts";
 import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
@@ -19,10 +19,10 @@ import {
   OriginRequest,
   setPassthroughTiming,
 } from "./request.ts";
-import { Logger } from "./log/log_location.ts";
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
+import { StackTracer } from "./util/stack_tracer.ts";
 
 interface FetchOriginOptions {
   url?: URL;
@@ -340,7 +340,7 @@ class FunctionChain {
       // stack trace.
       const response = await callWithNamedWrapper(
         () => func.function(this.request, context),
-        LogLocation.serializeRequestID(this.requestID),
+        StackTracer.serializeRequestID(this.requestID),
       );
 
       if (response === undefined) {

@@ -5,7 +5,7 @@ import {
 } from "https://deno.land/std@0.170.0/http/server.ts";
 
 import { handleRequest } from "./handler.ts";
-import { patchLogger } from "./log/log_location.ts";
+import { patchLogger } from "./log/instrumented_log.ts";
 import { Functions, Metadata } from "./stage_2.ts";
 
 export const serve = (functions: Functions, metadata?: Metadata) => {

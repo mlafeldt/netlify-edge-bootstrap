@@ -1,6 +1,6 @@
 import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
-import { Logger } from "./log/log_location.ts";
+import { Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
 import {
   EdgeRequest,

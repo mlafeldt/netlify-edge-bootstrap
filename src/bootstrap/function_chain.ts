@@ -238,12 +238,6 @@ class FunctionChain {
   }
 
   hasMutatedHeaders() {
-    const hasMutatedCookies = this.cookies.ops.length !== 0;
-
-    if (hasMutatedCookies) {
-      return true;
-    }
-
     const headersA = serializeHeaders(this.initialHeaders);
     const headersB = serializeHeaders(this.request.headers);
 
@@ -358,9 +352,9 @@ class FunctionChain {
         //    we must return the full response as it may get transformed
         // 2. The request doesn't have a body — if it does, it's already been
         //    consumed and our edge node won't be able to process it further
-        // 3. The request or response headers haven't been mutated — if they
-        //    have, we'd have to send the new headers as part of the bypass
-        //    signal so that they're added in our edge node
+        // 3. The request headers haven't been mutated — if they have, we'd
+        //    have to send the new headers as part of the bypass signal so
+        //    that they're added in our edge node
         const canBypass = nextOptions === undefined &&
           this.request.body === null && !this.hasMutatedHeaders();
 

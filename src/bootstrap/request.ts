@@ -1,83 +1,109 @@
+import { Account, parseAccountHeader } from "./account.ts";
 import { getEnvironment } from "./environment.ts";
+import { Geo, parseGeoHeader } from "./geo.ts";
 import {
   conditionals as conditionalHeaders,
   InternalHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
+import { parseSiteHeader, Site } from "./site.ts";
 
-const internals = Symbol("Netlify Internals");
+const internalsSymbol = Symbol("Netlify Internals");
 
-export const enum Mode {
-  BeforeCache = "before-cache",
-  AfterCache = "after-cache",
+export const enum CacheMode {
+  Manual = "manual",
+  Off = "off",
 }
 
-class EdgeRequest extends Request {
-  [internals]: {
-    forwardedHost: string | null;
-    forwardedProtocol: string | null;
-    requestID: string | null;
-    passthrough: string | null;
-    passthroughHost: string | null;
-    ip: string | null;
-    featureFlags: FeatureFlags;
-    passthroughTiming?: string;
-    acceptsBypass?: boolean;
-  };
+interface EdgeRequestInternals {
+  account: Account;
+  bypassSettings: string | null;
+  cacheMode: string | null;
+  featureFlags: FeatureFlags;
+  forwardedHost: string | null;
+  forwardedProtocol: string | null;
+  geo: Geo;
+  ip: string;
+  passthrough: string | null;
+  passthroughHost: string | null;
+  passthroughTiming?: string;
+  requestID: string | null;
+  site: Site;
+}
+
+export class EdgeRequest extends Request {
+  [internalsSymbol]: EdgeRequestInternals;
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
-    const requestInfo = input instanceof URL ? input.toString() : input;
+    const base = input instanceof URL ? new Request(input, init) : input;
 
-    super(requestInfo, init);
+    super(base);
 
-    this[internals] = {
-      forwardedHost: this.headers.get(InternalHeaders.ForwardedHost),
-      forwardedProtocol: this.headers.get(InternalHeaders.ForwardedProtocol),
-      passthrough: this.headers.get(InternalHeaders.Passthrough),
-      passthroughHost: this.headers.get(InternalHeaders.PassthroughHost),
-      requestID: this.headers.get(InternalHeaders.RequestID),
-      ip: this.headers.get(InternalHeaders.IP),
+    const internals = init instanceof EdgeRequest ? init[internalsSymbol] : {
+      account: parseAccountHeader(
+        this.headers.get(InternalHeaders.AccountInfo),
+      ),
+      bypassSettings: this.headers.get(InternalHeaders.EdgeFunctionBypass),
+      cacheMode: this.headers.get(InternalHeaders.EdgeFunctionCache),
       featureFlags: parseFeatureFlagsHeader(
         this.headers.get(InternalHeaders.FeatureFlags),
       ),
-      acceptsBypass:
-        this.headers.get(InternalHeaders.EdgeFunctionBypass) === "1",
+      forwardedHost: this.headers.get(InternalHeaders.ForwardedHost),
+      forwardedProtocol: this.headers.get(InternalHeaders.ForwardedProtocol),
+      geo: parseGeoHeader(this.headers.get(InternalHeaders.Geo)),
+      ip: this.headers.get(InternalHeaders.IP) ?? "",
+      passthrough: this.headers.get(InternalHeaders.Passthrough),
+      passthroughHost: this.headers.get(InternalHeaders.PassthroughHost),
+      requestID: this.headers.get(InternalHeaders.RequestID),
+      site: parseSiteHeader(this.headers.get(InternalHeaders.SiteInfo)),
     };
 
+    this[internalsSymbol] = internals;
+
     [
+      InternalHeaders.AccountInfo,
       InternalHeaders.ForwardedHost,
       InternalHeaders.ForwardedProtocol,
+      InternalHeaders.Geo,
+      InternalHeaders.IP,
       InternalHeaders.EdgeFunctions,
+      InternalHeaders.InvocationMetadata,
       InternalHeaders.Passthrough,
       InternalHeaders.PassthroughHost,
+      InternalHeaders.RequestID,
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
+      InternalHeaders.SiteInfo,
     ].forEach((header) => {
       this.headers.delete(header);
     });
   }
 }
 
-const clone = (edgeRequest: EdgeRequest, request?: Request) => {
-  const newEdgeRequest = new EdgeRequest(request ?? edgeRequest);
-  newEdgeRequest[internals] = edgeRequest[internals];
-  return newEdgeRequest;
-};
+export const getAccount = (request: EdgeRequest) =>
+  request[internalsSymbol].account;
 
-export const getMode = (request: EdgeRequest) =>
-  request[internals].passthrough ? Mode.BeforeCache : Mode.AfterCache;
+export const getCacheMode = (request: EdgeRequest) =>
+  request[internalsSymbol].cacheMode === CacheMode.Manual
+    ? CacheMode.Manual
+    : CacheMode.Off;
+
+export const getGeoLocation = (request: EdgeRequest) =>
+  request[internalsSymbol].geo;
+
+export const getIP = (request: EdgeRequest) => request[internalsSymbol].ip;
 
 export const getRequestID = (request: EdgeRequest) =>
-  request[internals].requestID;
+  request[internalsSymbol].requestID ?? "";
 
 export const getPassthroughTiming = (request: EdgeRequest) =>
-  request[internals].passthroughTiming;
+  request[internalsSymbol].passthroughTiming;
 
-export const acceptsBypass = (request: EdgeRequest) =>
-  request[internals].acceptsBypass;
+export const getBypassSettings = (request: EdgeRequest) =>
+  request[internalsSymbol].bypassSettings;
 
 export const setPassthroughTiming = (request: EdgeRequest, value: string) => {
-  request[internals].passthroughTiming = value;
+  request[internalsSymbol].passthroughTiming = value;
 };
 
 /**
@@ -86,9 +112,11 @@ export const setPassthroughTiming = (request: EdgeRequest, value: string) => {
  * Beware: Only for Netlify-Internal use!
  */
 export const getFeatureFlags = (request: EdgeRequest) =>
-  request[internals].featureFlags;
+  request[internalsSymbol].featureFlags;
 
-interface OriginRequestOptions {
+export const getSite = (request: EdgeRequest) => request[internalsSymbol].site;
+
+interface PassthroughRequestOptions {
   req: EdgeRequest;
   stripConditionalHeaders?: boolean;
   url?: URL;
@@ -103,28 +131,28 @@ export const hasFeatureFlag = (request: EdgeRequest, flagName: string) => {
   return Boolean(flags[flagName]);
 };
 
-class OriginRequest extends Request {
+export class PassthroughRequest extends Request {
   constructor({
     req,
     stripConditionalHeaders = false,
     url = new URL(req.url),
-  }: OriginRequestOptions) {
-    const passthroughHeader = req[internals].passthrough;
-    const requestIDHeader = req[internals].requestID;
+  }: PassthroughRequestOptions) {
+    const passthroughHeader = req[internalsSymbol].passthrough;
+    const requestIDHeader = req[internalsSymbol].requestID;
     const environment = getEnvironment();
 
     // When running locally, we allow the client to specify the host and the
     // protocol used for origin requests.
     if (environment === "local") {
-      url.host = req[internals].forwardedHost ?? url.host;
-      url.protocol = req[internals].forwardedProtocol
-        ? `${req[internals].forwardedProtocol}:`
+      url.host = req[internalsSymbol].forwardedHost ?? url.host;
+      url.protocol = req[internalsSymbol].forwardedProtocol
+        ? `${req[internalsSymbol].forwardedProtocol}:`
         : url.protocol;
     }
 
     // The edge node can pass this header to tell the isolate which host it
     // should use for the origin call.
-    url.host = req[internals].passthroughHost ?? url.host;
+    url.host = req[internalsSymbol].passthroughHost ?? url.host;
 
     let reqInit: Request = req;
     if (req.body && req.bodyUsed) {
@@ -151,5 +179,3 @@ class OriginRequest extends Request {
     }
   }
 }
-
-export { clone, EdgeRequest, OriginRequest };

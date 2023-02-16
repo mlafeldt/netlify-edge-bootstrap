@@ -1,6 +1,5 @@
 import type { Account } from "./account.ts";
 import type { Cookies } from "./cookie_store.ts";
-import type { FunctionChain } from "./function_chain.ts";
 import type { Geo } from "./geo.ts";
 import type { Site } from "./site.ts";
 
@@ -12,12 +11,11 @@ interface Context {
   /**
    * @deprecated Use [`Response.json`](https://fetch.spec.whatwg.org/#ref-for-dom-response-json①) instead.
    */
-  json: FunctionChain["json"];
-
+  json(input: unknown, init?: ResponseInit): Response;
   /**
    * @deprecated Use `console.log` instead.
    */
-  log: ReturnType<FunctionChain["getLogFunction"]>;
+  log(...data: unknown[]): void;
 
   next(options?: NextOptions): Promise<Response>;
   /**
@@ -26,13 +24,18 @@ interface Context {
   next(request: Request, options?: NextOptions): Promise<Response>;
 
   requestId: string;
-  rewrite: FunctionChain["rewrite"];
+  rewrite(url: string | URL): Promise<Response>;
   site: Site;
   account: Account;
+  server: ServerMetadata;
 }
 
 interface NextOptions {
   sendConditionalRequest?: boolean;
+}
+
+interface ServerMetadata {
+  region: string;
 }
 
 export type { Context, NextOptions };

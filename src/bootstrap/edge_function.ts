@@ -4,7 +4,13 @@ interface EdgeFunction {
   (
     request: Request,
     context: Context,
-  ): Response | Promise<Response> | void | Promise<void>;
+  ):
+    | Response
+    | Promise<Response>
+    | URL
+    | Promise<URL>
+    | void
+    | Promise<void>;
 }
 
 export type { EdgeFunction };

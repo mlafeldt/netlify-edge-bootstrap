@@ -14,6 +14,8 @@ export enum InternalHeaders {
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   PassthroughTiming = "x-nf-passthrough-timing",
   DebugLogging = "x-nf-debug-logging",
+  InvocationMetadata = "x-nf-edge-functions-metadata",
+  EdgeFunctionCache = "x-nf-edge-function-cache",
 }
 
 export enum StandardHeaders {
@@ -29,12 +31,43 @@ export const conditionals = [
   "if-range",
 ];
 
-export const serialize = (headers: Headers) => {
-  const headersObj: Record<string, string> = {};
+// Returns the diff between two sets of headers as an object:
+// - If a header has been added or modified, it will show in the diff object
+//   with its new value
+// - If a header has been deleted, it will show in the diff object with an
+//   empty string
+// - If a header has not been modified, it will not show in the diff object
+export const getDiff = (before: Headers, after: Headers) => {
+  const diff: Record<string, string> = {};
 
-  headers.forEach((value, key) => {
-    headersObj[key] = value;
+  after.forEach((value, key) => {
+    if (before.get(key) !== value) {
+      diff[key] = value;
+    }
   });
 
-  return JSON.stringify(headersObj);
+  before.forEach((_, key) => {
+    if (!after.has(key)) {
+      diff[key] = "";
+    }
+  });
+
+  return diff;
+};
+
+export const serialize = (headers: Headers) => {
+  const headersObject: Record<string, string[]> = {};
+
+  headers.forEach((value, name) => {
+    // `set-cookie` is a special case where multiple values exist for the same
+    // key, as opposed to being comma-separated on a single key.
+    // https://github.com/whatwg/fetch/issues/973
+    const values = name === "set-cookie" ? [value] : value.split(", ");
+
+    values.forEach((value) => {
+      headersObject[name] = [...(headersObject[name] || []), value];
+    });
+  });
+
+  return headersObject;
 };

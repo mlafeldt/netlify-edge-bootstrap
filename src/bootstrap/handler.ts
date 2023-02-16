@@ -1,17 +1,18 @@
-import { FunctionChain } from "./function_chain.ts";
 import { EdgeFunction } from "./edge_function.ts";
+import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
 import {
   EdgeRequest,
+  getCacheMode,
   getFeatureFlags,
-  getMode,
   getPassthroughTiming,
   hasFeatureFlag,
 } from "./request.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 import { isCacheable } from "./cache.ts";
+import { parseInvocationMetadata, Router } from "./router.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
@@ -21,13 +22,17 @@ export const requestStore = new Map<string, EdgeRequest>();
 const handleRequest = async (
   req: Request,
   functions: Record<string, EdgeFunction>,
-  { rawLogger }: HandleRequestOptions = {},
+  { rawLogger = console.log }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
 
   try {
     const functionNames = req.headers.get(InternalHeaders.EdgeFunctions);
+    const metadata = parseInvocationMetadata(
+      req.headers.get(InternalHeaders.InvocationMetadata),
+    );
+    const router = new Router(functions, metadata);
 
     if (id == null || functionNames == null) {
       return new Response(
@@ -39,11 +44,16 @@ const handleRequest = async (
       );
     }
 
-    const requestFunctions = functionNames.split(",").map((name) => ({
-      name,
-      function: functions[name],
-    }));
     const edgeReq = new EdgeRequest(req);
+    const chain = new FunctionChain({
+      functions: functionNames.split(",").map((name) => ({
+        name,
+        function: functions[name],
+      })),
+      rawLogger,
+      request: edgeReq,
+      router,
+    });
 
     requestStore.set(id, edgeReq);
 
@@ -52,18 +62,14 @@ const handleRequest = async (
         .withFields({
           feature_flags: Object.keys(getFeatureFlags(edgeReq)),
           function_names: functionNames,
-          mode: getMode(edgeReq),
+          mode: getCacheMode(edgeReq),
         })
         .withRequestID(id)
         .log("Started edge function invocation");
     }
 
-    const chain = new FunctionChain({
-      functions: requestFunctions,
-      rawLogger,
-      request: edgeReq,
-    });
     const startTime = performance.now();
+
     const response = await chain.run();
 
     // If we talked to origin and we got a timing header back, let's propagate it to
@@ -95,7 +101,7 @@ const handleRequest = async (
       logger
         .withFields({
           cache_control: cacheControl,
-          mode: getMode(edgeReq),
+          mode: getCacheMode(edgeReq),
         })
         .withRequestID(id)
         .log("Edge function returned cacheable cache-control headers");

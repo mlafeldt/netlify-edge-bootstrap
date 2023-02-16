@@ -1,37 +1,40 @@
-import { Status } from "https://deno.land/std@0.170.0/http/http_status.ts";
-
-import { Account, parseAccountHeader } from "./account.ts";
+import {
+  BypassResponse,
+  supportsPassthroughBypass,
+  supportsRewriteBypass,
+} from "./bypass.ts";
 import type { Context, NextOptions } from "./context.ts";
 import type { EdgeFunction } from "./edge_function.ts";
 import { CookieStore } from "./cookie_store.ts";
-import { Geo, parseGeoHeader } from "./geo.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
-import { parseSiteHeader, Site } from "./site.ts";
 import { logger } from "./log/logger.ts";
-import { InternalHeaders, serialize as serializeHeaders } from "./headers.ts";
+import { InternalHeaders } from "./headers.ts";
 import {
-  acceptsBypass,
-  clone,
+  CacheMode,
   EdgeRequest,
-  getMode,
+  getAccount,
+  getCacheMode,
+  getGeoLocation,
+  getIP,
   getRequestID,
-  Mode,
-  OriginRequest,
+  getSite,
+  hasFeatureFlag,
+  PassthroughRequest,
   setPassthroughTiming,
 } from "./request.ts";
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
+import { Router } from "./router.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { StackTracer } from "./util/stack_tracer.ts";
 
-interface FetchOriginOptions {
-  url?: URL;
-}
-
 interface FunctionChainOptions {
+  cookies?: CookieStore;
   functions: RequestFunction[];
-  rawLogger?: Logger;
+  initialRequestURL?: URL;
+  rawLogger: Logger;
   request: EdgeRequest;
+  router: Router;
 }
 
 interface RequestFunction {
@@ -40,69 +43,56 @@ interface RequestFunction {
 }
 
 interface RunFunctionOptions {
-  canBypass?: boolean;
   functionIndex: number;
   nextOptions?: NextOptions;
+  requireFinalResponse?: boolean;
+  previousRewrites?: Set<string>;
 }
 
-const INTERNAL_HEADERS = [
-  InternalHeaders.IP,
-  InternalHeaders.SiteInfo,
-  InternalHeaders.AccountInfo,
-];
-
 class FunctionChain {
-  account: Account;
+  cacheMode: CacheMode;
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
   debug: boolean;
   functions: RequestFunction[];
-  geo: Geo;
   initialHeaders: Headers;
-  ip: string | null;
-  mode: Mode;
-  rawLogger?: Logger;
+  initialRequestURL: URL;
+  rawLogger: Logger;
   request: EdgeRequest;
-  requestID: string;
   response: Response;
-  site: Site;
+  router: Router;
 
-  constructor({ functions, rawLogger, request }: FunctionChainOptions) {
+  constructor(
+    {
+      request,
+      cookies = new CookieStore(request),
+      functions,
+      initialRequestURL = new URL(request.url),
+      rawLogger,
+      router,
+    }: FunctionChainOptions,
+  ) {
+    this.cacheMode = getCacheMode(request);
+    this.cookies = cookies;
     this.contextNextCalls = [];
     this.debug = Boolean(request.headers.get(InternalHeaders.DebugLogging));
     this.functions = functions;
-    this.geo = parseGeoHeader(request.headers.get(InternalHeaders.Geo));
-    this.ip = request.headers.get(InternalHeaders.IP);
-    this.mode = getMode(request);
+    this.initialHeaders = new Headers(request.headers);
+    this.initialRequestURL = initialRequestURL;
     this.rawLogger = rawLogger;
     this.request = request;
-    this.requestID = getRequestID(this.request) ?? "";
     this.response = new Response();
-    this.cookies = new CookieStore(this.request);
-    this.site = parseSiteHeader(request.headers.get(InternalHeaders.SiteInfo));
-    this.account = parseAccountHeader(
-      request.headers.get(InternalHeaders.AccountInfo),
-    );
-
-    this.stripInternalHeaders();
-
-    this.initialHeaders = new Headers(this.request.headers);
+    this.router = router;
   }
 
-  private stripInternalHeaders() {
-    for (const header of INTERNAL_HEADERS) {
-      this.request.headers.delete(header);
-    }
-  }
-
-  async fetchOrigin({ url }: FetchOriginOptions = {}) {
+  async fetchPassthrough(url?: URL) {
     const startTime = performance.now();
 
     // We strip the conditional headers if `context.next()` was called and at
     // least one of the calls was missing the `sendConditionalRequest` option.
     const stripConditionalHeaders = this.contextNextCalls.length > 0 &&
       this.contextNextCalls.some((options) => !options.sendConditionalRequest);
-    const originReq = new OriginRequest({
+    const originReq = new PassthroughRequest({
       req: this.request,
       stripConditionalHeaders,
       url,
@@ -121,7 +111,7 @@ class FunctionChain {
             retry_count: retryCount,
             strip_conditional_headers: stripConditionalHeaders,
           })
-          .withRequestID(this.requestID)
+          .withRequestID(getRequestID(this.request))
           .log(message);
       }
       try {
@@ -156,7 +146,7 @@ class FunctionChain {
           origin_status: res.status,
           origin_url: url,
         })
-        .withRequestID(this.requestID)
+        .withRequestID(getRequestID(this.request))
         .log(
           "Finished edge function request to origin",
         );
@@ -170,12 +160,6 @@ class FunctionChain {
     newRequest?: Request,
     options: NextOptions = {},
   ) {
-    if (this.mode === Mode.AfterCache) {
-      throw new Error(
-        "Edge functions running after the cache cannot use `context.next()`. For more information, visit https://ntl.fyi/edge-after-cache",
-      );
-    }
-
     if (
       newRequest &&
       new URL(newRequest.url).origin !== new URL(this.request.url).origin
@@ -188,20 +172,24 @@ class FunctionChain {
     this.contextNextCalls.push(options);
 
     if (newRequest) {
-      this.request = clone(this.request, newRequest);
+      this.request = new EdgeRequest(newRequest, this.request);
     }
 
     return this.runFunction({
       functionIndex: functionIndex + 1,
       nextOptions: options,
+
+      // `context.next()` calls always require a final response (i.e. no bypass
+      // signals), as they may be used for transformation.
+      requireFinalResponse: true,
     });
   }
 
   getContext(functionIndex: number) {
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
-      geo: this.geo,
-      ip: this.ip ?? "",
+      geo: getGeoLocation(this.request),
+      ip: getIP(this.request),
       json: this.json.bind(this),
       log: this.getLogFunction(functionIndex),
       next: (
@@ -214,10 +202,13 @@ class FunctionChain {
 
         return this.contextNext(functionIndex, undefined, reqOrOptions);
       },
-      requestId: this.requestID,
+      requestId: getRequestID(this.request),
       rewrite: this.rewrite.bind(this),
-      site: this.site,
-      account: this.account,
+      site: getSite(this.request),
+      account: getAccount(this.request),
+      server: {
+        region: Deno.env.get("DENO_REGION") ?? "",
+      },
     };
 
     return context;
@@ -232,16 +223,9 @@ class FunctionChain {
         logger,
         data,
         name,
-        this.requestID,
+        getRequestID(this.request),
       );
     };
-  }
-
-  hasMutatedHeaders() {
-    const headersA = serializeHeaders(this.initialHeaders);
-    const headersB = serializeHeaders(this.request.headers);
-
-    return headersA !== headersB;
   }
 
   json(input: unknown, init?: ResponseInit) {
@@ -265,12 +249,6 @@ class FunctionChain {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
     const requestUrl = new URL(this.request.url);
 
-    if (this.mode === Mode.AfterCache) {
-      throw new Error(
-        "Edge functions running after the cache cannot use `context.rewrite()`. For more information, visit https://ntl.fyi/edge-after-cache",
-      );
-    }
-
     if (newUrl.origin !== requestUrl.origin) {
       throw new Error(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
@@ -278,7 +256,7 @@ class FunctionChain {
     }
 
     const start = performance.now();
-    const response = await this.fetchOrigin({ url: newUrl });
+    const response = await this.fetchPassthrough(newUrl);
     const end = performance.now();
     const duration = end - start;
 
@@ -289,46 +267,73 @@ class FunctionChain {
     return response;
   }
 
-  async run() {
-    const response = await this.runFunction({ functionIndex: 0 });
+  async run(
+    { previousRewrites, requireFinalResponse }: {
+      previousRewrites?: Set<string>;
+      requireFinalResponse?: boolean;
+    } = {},
+  ) {
+    const response = await this.runFunction({
+      functionIndex: 0,
+      previousRewrites,
+      requireFinalResponse,
+    });
 
     // Adding to the response any cookies that have been modified via the
-    // `context.cookies` interface.
-    this.cookies.apply(response);
+    // `context.cookies` interface. If the response is a bypass, we don't
+    // need to do it because the right headers have already been added to
+    // the bypass body.
+    if (
+      !(response instanceof BypassResponse && hasFeatureFlag(
+        this.request,
+        "edge_functions_bootstrap_bypass_response_headers",
+      ))
+    ) {
+      this.cookies.apply(response.headers);
+    }
 
     return response;
   }
 
   async runFunction({
-    canBypass = false,
     functionIndex,
     nextOptions,
+    previousRewrites = new Set(),
+    requireFinalResponse = false,
   }: RunFunctionOptions): Promise<Response> {
     const func = this.functions[functionIndex];
 
     // We got to the end of the chain and the last function has early-returned.
     if (func === undefined) {
-      // If we're running after the cache, there's not much we can do other
-      // than returning a blank response.
-      if (this.mode === Mode.AfterCache) {
-        return new Response(null, {
-          status: Status.NoContent,
-        });
-      }
-
-      // Return a bypass flag to the edge node, if possible.
+      // At this point, the edge functions have finished the invocation and the
+      // request needs to follow its normal course in the request chain. To do
+      // this, we can make a passthrough call to our edge nodes. Alternatively,
+      // we can return a special response that instructs our edge node to do
+      // that, which is an optimization that avoids a round-trip from Deno to us.
+      // However, we can only do this when all of the conditions below are met:
+      //
+      // 1. The incoming request has a header that indicates that the edge node
+      //    supports this optimization
+      // 2. The caller hasn't specified that it needs the final response to be
+      //    returned, which needs to happen for transformations
+      // 3. The request doesn't have a body — if it does, it's already been
+      //    consumed and our edge node won't be able to process it further
+      // 4. The function is running before the cache — if we're running after
+      //    the cache, it's too late for us to do a bypass
       if (
-        acceptsBypass(this.request) && canBypass
+        supportsPassthroughBypass(this.request) && !requireFinalResponse &&
+        this.request.body === null &&
+        getCacheMode(this.request) === CacheMode.Off
       ) {
-        return new Response(null, {
-          headers: {
-            [InternalHeaders.EdgeFunctionBypass]: "1",
-          },
-          status: Status.NoContent,
+        return new BypassResponse({
+          cookies: this.cookies,
+          currentRequest: this.request,
+          initialRequestHeaders: this.initialHeaders,
+          initialRequestURL: this.initialRequestURL,
         });
       }
 
-      return this.fetchOrigin();
+      return this.fetchPassthrough();
     }
 
     const context = this.getContext(functionIndex);
@@ -338,36 +343,95 @@ class FunctionChain {
       // identity function. The name of this function has a marker that allows us
       // to decode the request ID from any `console.log` calls by inspecting the
       // stack trace.
-      const response = await callWithNamedWrapper(
+      const result = await callWithNamedWrapper(
         () => func.function(this.request, context),
-        StackTracer.serializeRequestID(this.requestID),
+        StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
-      if (response === undefined) {
-        // If the function has early-returned, we can return a bypass header so
-        // that our edge node can let the request follow its normal course. But
-        // we can only do this when all of the conditions below are met:
+      // If the function returned a URL object, it means a rewrite.
+      if (result instanceof URL) {
+        if (result.origin !== new URL(this.request.url).origin) {
+          throw new Error(
+            `Rewrite to '${result.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
+          );
+        }
+
+        // Rather than rewriting inside the isolate by making a passthrough
+        // request and returning the response, we can run the rewrite in our
+        // edge nodes by returning a special bypass response. We can do this
+        // when all the following conditions are met:
         //
-        // 1. The previous function hasn't called `context.next()` — if it has,
-        //    we must return the full response as it may get transformed
+        // 1. The incoming request has a header that indicates that the edge
+        //    node supports this optimization
         // 2. The request doesn't have a body — if it does, it's already been
         //    consumed and our edge node won't be able to process it further
-        // 3. The request headers haven't been mutated — if they have, we'd
-        //    have to send the new headers as part of the bypass signal so
-        //    that they're added in our edge node
-        const canBypass = nextOptions === undefined &&
-          this.request.body === null && !this.hasMutatedHeaders();
+        if (
+          supportsRewriteBypass(this.request) &&
+          this.request.body === null
+        ) {
+          const isLoop = previousRewrites.has(result.pathname);
 
+          if (isLoop) {
+            throw new Error(
+              `Loop detected: the path '${result.pathname}' has been both the source and the target of a rewrite in the same request`,
+            );
+          }
+
+          const newRequest = new EdgeRequest(result, this.request);
+
+          // Before returning the bypass response, we need to run any functions
+          // configured for the new path.
+          const functions = this.router.match(result);
+
+          // If there are no functions configured for the new path, we can run
+          // the rewrite. This means making a passthrough call if the caller
+          // has requested a final response, or returning a bypass response
+          // otherwise.
+          if (functions.length === 0) {
+            if (requireFinalResponse) {
+              return this.fetchPassthrough(result);
+            }
+
+            return new BypassResponse({
+              cookies: this.cookies,
+              currentRequest: newRequest,
+              initialRequestHeaders: this.initialHeaders,
+              initialRequestURL: this.initialRequestURL,
+            });
+          }
+
+          const newChain = new FunctionChain({
+            cookies: this.cookies,
+            functions,
+            initialRequestURL: this.initialRequestURL,
+            rawLogger: this.rawLogger,
+            request: newRequest,
+            router: this.router,
+          });
+
+          return newChain.run({
+            previousRewrites: new Set([...previousRewrites, result.pathname]),
+            requireFinalResponse,
+          });
+        }
+
+        return this.fetchPassthrough(result);
+      }
+
+      // If the function returned undefined, it means a bypass. Call the next
+      // function in the chain.
+      if (result === undefined) {
         return this.runFunction({
-          canBypass,
           functionIndex: functionIndex + 1,
           nextOptions,
+          requireFinalResponse,
         });
       }
 
-      return response;
+      return result;
     } catch (error) {
       context.log(error);
+
       throw error;
     }
   }

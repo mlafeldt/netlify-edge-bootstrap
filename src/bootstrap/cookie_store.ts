@@ -36,11 +36,11 @@ class CookieStore {
     this.request = request;
   }
 
-  apply(response: Response) {
+  apply(headers: Headers) {
     this.ops.forEach((op) => {
       switch (op.type) {
         case "delete":
-          deleteCookie(response.headers, op.options.name, {
+          deleteCookie(headers, op.options.name, {
             domain: op.options.domain,
             path: op.options.path,
           });
@@ -48,11 +48,13 @@ class CookieStore {
           break;
 
         case "set":
-          setCookie(response.headers, op.cookie);
+          setCookie(headers, op.cookie);
 
           break;
       }
     });
+
+    return headers;
   }
 
   delete(input: string | DeleteCookieOptions) {

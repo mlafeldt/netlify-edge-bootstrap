@@ -1,25 +1,14 @@
 import {
-  Cookie,
   deleteCookie,
   getCookies,
   setCookie,
 } from "https://deno.land/std@0.170.0/http/cookie.ts";
 
-interface Cookies {
-  delete: CookieStore["delete"];
-  get: CookieStore["get"];
-  set: CookieStore["set"];
-}
+import { Cookie, Cookies, DeleteCookieOptions } from "./cookie.ts";
 
 interface DeleteCookieOp {
   options: DeleteCookieOptions;
   type: "delete";
-}
-
-interface DeleteCookieOptions {
-  domain?: string;
-  name: string;
-  path?: string;
 }
 
 interface SetCookieOp {
@@ -92,4 +81,3 @@ class CookieStore {
 }
 
 export { CookieStore };
-export type { Cookies };

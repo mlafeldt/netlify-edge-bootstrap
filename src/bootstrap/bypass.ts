@@ -56,10 +56,10 @@ export class BypassResponse extends Response {
     { cookies, currentRequest, initialRequestHeaders, initialRequestURL }:
       BypassResponseOptions,
   ) {
-    const body: BypassResponseBody = {};
+    const payload: BypassResponseBody = {};
 
     if (currentRequest.url !== initialRequestURL.toString()) {
-      body.rewrite_url = currentRequest.url;
+      payload.rewrite_url = currentRequest.url;
     }
 
     const requestHeaders = getHeadersDiff(
@@ -68,7 +68,7 @@ export class BypassResponse extends Response {
     );
 
     if (Object.keys(requestHeaders).length !== 0) {
-      body.request_headers = requestHeaders;
+      payload.request_headers = requestHeaders;
     }
 
     const responseHeaders = serializeHeaders(cookies.apply(new Headers()));
@@ -79,16 +79,20 @@ export class BypassResponse extends Response {
         "edge_functions_bootstrap_bypass_response_headers",
       ) && Object.keys(responseHeaders).length !== 0
     ) {
-      body.response_headers = responseHeaders;
+      payload.response_headers = responseHeaders;
     }
 
-    super(JSON.stringify(body), {
+    const [body, status] = Object.keys(payload).length === 0
+      ? [null, Status.NoContent]
+      : [JSON.stringify(payload), Status.OK];
+
+    super(body, {
       headers: {
         [InternalHeaders.EdgeFunctionBypass]: "1",
       },
-      status: Status.OK,
+      status,
     });
 
-    this.rewriteURL = body.rewrite_url;
+    this.rewriteURL = payload.rewrite_url;
   }
 }

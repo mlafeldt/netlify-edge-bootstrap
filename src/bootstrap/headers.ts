@@ -1,4 +1,5 @@
 export enum InternalHeaders {
+  Country = "x-country",
   Geo = "x-nf-geo",
   SiteInfo = "x-nf-site-info",
   AccountInfo = "x-nf-account-info",
@@ -16,6 +17,8 @@ export enum InternalHeaders {
   DebugLogging = "x-nf-debug-logging",
   InvocationMetadata = "x-nf-edge-functions-metadata",
   EdgeFunctionCache = "x-nf-edge-function-cache",
+  LegacyEdgeFunctions = "x-deno-functions",
+  LegacyPassthrough = "x-deno-pass",
 }
 
 export enum StandardHeaders {

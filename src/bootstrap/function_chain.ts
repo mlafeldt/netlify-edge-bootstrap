@@ -25,6 +25,7 @@ import {
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { Router } from "./router.ts";
+import { UnhandledFunctionError } from "./util/errors.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { StackTracer } from "./util/stack_tracer.ts";
 
@@ -344,7 +345,8 @@ class FunctionChain {
       // to decode the request ID from any `console.log` calls by inspecting the
       // stack trace.
       const result = await callWithNamedWrapper(
-        () => func.function(this.request, context),
+        // Type-asserting to `unknown` because user code can return anything.
+        () => func.function(this.request, context) as unknown,
         StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
@@ -428,7 +430,14 @@ class FunctionChain {
         });
       }
 
-      return result;
+      // If the function returned a response, return that.
+      if (result instanceof Response) {
+        return result;
+      }
+
+      throw new UnhandledFunctionError(
+        `Function '${func.name}' returned an unsupported value. Accepted types are 'Response' or 'undefined'`,
+      );
     } catch (error) {
       context.log(error);
 

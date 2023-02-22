@@ -13,6 +13,7 @@ import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { getEnvironment } from "./environment.ts";
 import { isCacheable } from "./cache.ts";
 import { parseInvocationMetadata, Router } from "./router.ts";
+import { ErrorType, UnhandledFunctionError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
@@ -128,11 +129,16 @@ const handleRequest = async (
       let fields: Record<string, string | undefined> = {};
 
       if (error instanceof Error) {
+        const errorType = error instanceof UnhandledFunctionError
+          ? ErrorType.User
+          : ErrorType.Unknown;
+
         fields = {
           error_name: error.name,
           error_message: error.message,
           error_stack: error.stack,
           error_cause: String(error.cause),
+          error_type: errorType,
         };
       } else {
         fields = {

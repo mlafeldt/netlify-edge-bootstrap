@@ -1,5 +1,7 @@
 import { delay } from "https://deno.land/std@0.170.0/async/mod.ts";
 
+import { UnretriableError } from "./util/errors.ts";
+
 const INITIAL_BACKOFF_DELAY = 5;
 const MAX_BACKOFF_DELAY = 1000;
 const MAX_RETRIES = 3;
@@ -23,8 +25,13 @@ export async function backoffRetry<Type extends RetriedFunction>(
     try {
       return await func(retry);
     } catch (error) {
-      retry += 1;
       finalError = error;
+
+      if (error instanceof UnretriableError) {
+        break;
+      }
+
+      retry += 1;
 
       if (backoffDelay === undefined) {
         backoffDelay = INITIAL_BACKOFF_DELAY;

@@ -25,7 +25,7 @@ import {
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { Router } from "./router.ts";
-import { UnhandledFunctionError } from "./util/errors.ts";
+import { UnhandledFunctionError, UnretriableError } from "./util/errors.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { StackTracer } from "./util/stack_tracer.ts";
 
@@ -100,25 +100,41 @@ class FunctionChain {
     });
 
     const res = await backoffRetry(async (retryCount) => {
+      const fetchLogger = logger
+        .withFields({
+          context_next_count: this.contextNextCalls.length,
+          origin_url: url,
+          retry_count: retryCount,
+          strip_conditional_headers: stripConditionalHeaders,
+        })
+        .withRequestID(getRequestID(this.request));
+
       if (this.debug) {
         const message = retryCount === 0
           ? "Started edge function request to origin"
           : "Retrying edge function request to origin";
 
-        logger
-          .withFields({
-            context_next_count: this.contextNextCalls.length,
-            origin_url: url,
-            retry_count: retryCount,
-            strip_conditional_headers: stripConditionalHeaders,
-          })
-          .withRequestID(getRequestID(this.request))
-          .log(message);
+        fetchLogger.log(message);
       }
+
       try {
         return await fetch(originReq, { redirect: "manual" });
       } catch (error) {
-        throw new Error(
+        if (
+          hasFeatureFlag(
+            this.request,
+            "edge_functions_bootstrap_log_passthrough_errors",
+          )
+        ) {
+          fetchLogger.withFields({ error: error.message }).log(
+            "Error in passthrough call",
+          );
+        }
+
+        // We can't retry requests whose body has already been consumed.
+        const FetchError = originReq.bodyUsed ? UnretriableError : Error;
+
+        throw new FetchError(
           "There was an internal error while processing your request",
           {
             cause: error,

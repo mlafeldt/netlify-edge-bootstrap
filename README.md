@@ -25,17 +25,17 @@ make playground
 Send requests to playground:
 
 ```console
-❯ curl -H 'x-deno-functions: hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
+❯ curl -H 'x-nf-edge-functions: hello' -H 'x-nf-request-id: 1234' http://localhost:8000
 Hello world
 
-❯ curl -H 'x-deno-functions: up,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
+❯ curl -H 'x-nf-edge-functions: up,hello' -H 'x-nf-request-id: 1234' http://localhost:8000
 HELLO WORLD
 
-❯ curl -H 'x-deno-functions: up,skip,hello' -H 'x-deno-pass: passthrough' -H 'x-nf-request-id: 1234' http://localhost:8000
+❯ curl -H 'x-nf-edge-functions: up,skip,hello' -H 'x-nf-request-id: 1234' http://localhost:8000
 HELLO WORLD
 ```
 
-`x-deno-functions` must contain a list of functions to be run in the given order. Function handlers are defined [here](playground/netlify/edge-functions).
+`x-nf-edge-functions` must contain a list of functions to be run in the given order. Function handlers are defined [here](playground/netlify/edge-functions).
 
 
 Bundle functions like Netlify does before deploying to Deno Deploy:

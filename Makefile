@@ -13,12 +13,13 @@ bundle:
 
 # URLs derived from https://github.com/netlify/edge-bundler
 bootstrap:
-	$(RM) -r src vendor
-	$(DENO) vendor --force --reload --no-config \
+	$(RM) -r vendor
+	$(DENO) vendor --force --reload --no-config --import-map vendor-imports.json \
 		$(APP_URL)/index.ts \
 		$(APP_URL)/bootstrap/index-combined.ts \
 		$(APP_URL)/bootstrap/index-stage1.ts \
 		$(APP_URL)/bundler/stage1.ts
+	$(RM) -r src
 	mv -v vendor/edge.netlify.com src
 	$(RM) -r vendor
 

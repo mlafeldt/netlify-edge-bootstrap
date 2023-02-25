@@ -9,5 +9,9 @@
       "lineWidth": 120
     }
   },
-  "importMap": "import_map.json"
+  "imports": {
+    "https://edge.netlify.com/": "./src/",
+    "netlify:edge": "./src/index.ts",
+    "netlify:bootstrap-stage2": "./playground/stage2.ts"
+  }
 }

@@ -7,8 +7,9 @@ import {
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { parseSiteHeader, Site } from "./site.ts";
+import { OriginResponse } from "./response.ts";
 
-const internalsSymbol = Symbol("Netlify Internals");
+export const internalsSymbol = Symbol("Netlify Internals");
 
 export const enum CacheMode {
   Manual = "manual",
@@ -26,7 +27,7 @@ interface EdgeRequestInternals {
   ip: string;
   passthrough: string | null;
   passthroughHost: string | null;
-  passthroughTiming?: string;
+  passthroughHeaders?: Headers;
   requestID: string | null;
   site: Site;
 }
@@ -97,14 +98,18 @@ export const getIP = (request: EdgeRequest) => request[internalsSymbol].ip;
 export const getRequestID = (request: EdgeRequest) =>
   request[internalsSymbol].requestID ?? "";
 
-export const getPassthroughTiming = (request: EdgeRequest) =>
-  request[internalsSymbol].passthroughTiming;
-
 export const getBypassSettings = (request: EdgeRequest) =>
   request[internalsSymbol].bypassSettings;
 
-export const setPassthroughTiming = (request: EdgeRequest, value: string) => {
-  request[internalsSymbol].passthroughTiming = value;
+export const getPassthroughHeaders = (request: EdgeRequest) =>
+  request[internalsSymbol].passthroughHeaders ?? new Headers();
+
+export const setPassthroughHeaders = (
+  request: EdgeRequest,
+  originResponse: OriginResponse,
+) => {
+  request[internalsSymbol].passthroughHeaders =
+    originResponse[internalsSymbol].passthroughHeaders;
 };
 
 /**

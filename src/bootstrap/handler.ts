@@ -6,7 +6,7 @@ import {
   EdgeRequest,
   getCacheMode,
   getFeatureFlags,
-  getPassthroughTiming,
+  getPassthroughHeaders,
   hasFeatureFlag,
 } from "./request.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
@@ -73,15 +73,20 @@ const handleRequest = async (
 
     const response = await chain.run();
 
-    // If we talked to origin and we got a timing header back, let's propagate it to
-    // the final response.
-    const passthroughTiming = getPassthroughTiming(edgeReq);
-    if (passthroughTiming) {
+    // Propagate headers received from passthrough calls to the final response.
+    getPassthroughHeaders(edgeReq).forEach((value, key) => {
+      if (response.headers.has(key)) {
+        logger
+          .withFields({ header: key })
+          .withRequestID(id)
+          .log("user-defined header overwritten by passthrough header");
+      }
+
       response.headers.set(
-        InternalHeaders.PassthroughTiming,
-        passthroughTiming,
+        key,
+        value,
       );
-    }
+    });
 
     const endTime = performance.now();
 

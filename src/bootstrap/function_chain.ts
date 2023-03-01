@@ -20,13 +20,14 @@ import {
   getSite,
   hasFeatureFlag,
   PassthroughRequest,
-  setPassthroughTiming,
+  setPassthroughHeaders,
 } from "./request.ts";
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { Router } from "./router.ts";
 import { UnhandledFunctionError, UnretriableError } from "./util/errors.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
+import { isRedirect } from "./util/redirect.ts";
 import { StackTracer } from "./util/stack_tracer.ts";
 
 interface FunctionChainOptions {
@@ -60,7 +61,6 @@ class FunctionChain {
   initialRequestURL: URL;
   rawLogger: Logger;
   request: EdgeRequest;
-  response: Response;
   router: Router;
 
   constructor(
@@ -82,7 +82,6 @@ class FunctionChain {
     this.initialRequestURL = initialRequestURL;
     this.rawLogger = rawLogger;
     this.request = request;
-    this.response = new Response();
     this.router = router;
   }
 
@@ -142,17 +141,8 @@ class FunctionChain {
         );
       }
     });
-    const originRes = new OriginResponse(res, this.response);
-
-    // The edge node will send a header with how much time was spent in going to
-    // origin. We attach it to the request so that we can attach it to the final response
-    // later.
-    const passthroughTiming = originRes.headers.get(
-      InternalHeaders.PassthroughTiming,
-    );
-    if (passthroughTiming) {
-      setPassthroughTiming(this.request, passthroughTiming);
-    }
+    const originRes = new OriginResponse(res);
+    setPassthroughHeaders(this.request, originRes);
 
     const endTime = performance.now();
 
@@ -290,7 +280,7 @@ class FunctionChain {
       requireFinalResponse?: boolean;
     } = {},
   ) {
-    const response = await this.runFunction({
+    let response = await this.runFunction({
       functionIndex: 0,
       previousRewrites,
       requireFinalResponse,
@@ -306,6 +296,13 @@ class FunctionChain {
         "edge_functions_bootstrap_bypass_response_headers",
       ))
     ) {
+      // A response produced by `Response.redirect` has immutable headers, so
+      // we detect that case and create a new response where we can apply the
+      // cookies.
+      if (isRedirect(response)) {
+        response = new Response(null, response);
+      }
+
       this.cookies.apply(response.headers);
     }
 

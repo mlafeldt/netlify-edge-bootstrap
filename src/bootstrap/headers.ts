@@ -13,12 +13,20 @@ export enum InternalHeaders {
   UncaughtError = "x-nf-uncaught-error",
   FeatureFlags = "x-nf-feature-flags",
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
-  PassthroughTiming = "x-nf-passthrough-timing",
   DebugLogging = "x-nf-debug-logging",
   InvocationMetadata = "x-nf-edge-functions-metadata",
   EdgeFunctionCache = "x-nf-edge-function-cache",
   LegacyEdgeFunctions = "x-deno-functions",
   LegacyPassthrough = "x-deno-pass",
+  ATSVersion = "x-nf-ats-version",
+  CacheResult = "x-nf-cache-result",
+  BBCache = "x-bb-cache",
+  BBSiteCancelled = "x-bb-site-cancelled",
+  BBProxyType = "x-bb-proxy-type",
+  FunctionType = "x-nf-function-type",
+  FunctionID = "x-nf-func-id",
+  BlockReason = "x-nf-block-reason",
+  PassthroughTiming = "x-nf-passthrough-timing",
 }
 
 export enum StandardHeaders {

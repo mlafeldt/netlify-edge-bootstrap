@@ -66,6 +66,12 @@ export const getDiff = (before: Headers, after: Headers) => {
   return diff;
 };
 
+export const hasMutatedHeaders = (before: Headers, after: Headers) => {
+  const diff = getDiff(before, after);
+
+  return Object.keys(diff).length !== 0;
+};
+
 export const serialize = (headers: Headers) => {
   const headersObject: Record<string, string[]> = {};
 

@@ -5,6 +5,7 @@ import {
   getDiff as getHeadersDiff,
   InternalHeaders,
   serialize as serializeHeaders,
+  StandardHeaders,
 } from "./headers.ts";
 import { EdgeRequest, getBypassSettings, hasFeatureFlag } from "./request.ts";
 
@@ -56,6 +57,19 @@ export class BypassResponse extends Response {
     { cookies, currentRequest, initialRequestHeaders, initialRequestURL }:
       BypassResponseOptions,
   ) {
+    const headers = new Headers({ [InternalHeaders.EdgeFunctionBypass]: "1" });
+
+    // If the request doesn't support the advanced bypass mechanism, return
+    // an empty body.
+    if (!supportsRewriteBypass(currentRequest)) {
+      super(null, {
+        headers,
+        status: Status.NoContent,
+      });
+
+      return;
+    }
+
     const payload: BypassResponseBody = {};
 
     if (currentRequest.url !== initialRequestURL.toString()) {
@@ -86,10 +100,12 @@ export class BypassResponse extends Response {
       ? [null, Status.NoContent]
       : [JSON.stringify(payload), Status.OK];
 
+    // This header stops Deno from automatically compressing the response body:
+    // https://deno.land/manual@v1.25.4/runtime/http_server_apis#when-is-compression-skipped
+    headers.set(StandardHeaders.CacheControl, "no-transform");
+
     super(body, {
-      headers: {
-        [InternalHeaders.EdgeFunctionBypass]: "1",
-      },
+      headers,
       status,
     });
 

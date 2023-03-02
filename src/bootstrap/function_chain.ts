@@ -8,7 +8,7 @@ import type { EdgeFunction } from "./edge_function.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
-import { InternalHeaders } from "./headers.ts";
+import { hasMutatedHeaders, InternalHeaders } from "./headers.ts";
 import {
   CacheMode,
   EdgeRequest,
@@ -334,10 +334,15 @@ class FunctionChain {
       //    consumed and our edge node won't be able to process it further
       // 4. The function is running before the cache — if we're running after
       //    the cache, it's too late for us to do a bypass
+      // 5. The function hasn't mutated request headers without the edge node
+      //    supporting the advanced bypass mechanism that lets it return the
+      //    mutations in the response body
       if (
         supportsPassthroughBypass(this.request) && !requireFinalResponse &&
         this.request.body === null &&
-        getCacheMode(this.request) === CacheMode.Off
+        getCacheMode(this.request) === CacheMode.Off &&
+        (!hasMutatedHeaders(this.initialHeaders, this.request.headers) ||
+          supportsRewriteBypass(this.request))
       ) {
         return new BypassResponse({
           cookies: this.cookies,

@@ -1,4 +1,5 @@
 import { EdgeFunction } from "./edge_function.ts";
+import { InvocationMetadata } from "./invocation_metadata.ts";
 
 interface Route {
   function: string;
@@ -15,9 +16,10 @@ export class Router {
     metadata: InvocationMetadata,
   ) {
     const exclusionPatterns = new Map<string, RegExp[]>();
-    const { function_config: config, routes = [] } = metadata;
+    const config = metadata.function_config ?? {};
+    const routes = metadata.routes ?? [];
 
-    Object.entries(config || {}).forEach(
+    Object.entries(config).forEach(
       ([functionName, { excluded_patterns }]) => {
         if (!excluded_patterns) {
           return;
@@ -60,28 +62,5 @@ export class Router {
     }));
 
     return functions;
-  }
-}
-
-export interface InvocationMetadata {
-  function_config?: Record<string, { excluded_patterns: string[] | null }>;
-  routes?: { function: string; pattern: string }[];
-}
-
-// Parses the header with invocation metadata sent by our edge nodes. It holds
-// a Base64-encoded JSON string with the list of all routes and configuration.
-export function parseInvocationMetadata(
-  routingHeader: string | null,
-) {
-  if (!routingHeader) {
-    return {};
-  }
-
-  try {
-    const routingData: InvocationMetadata = JSON.parse(atob(routingHeader));
-
-    return routingData;
-  } catch {
-    throw new Error("Could not parse edge functions invocation metadata");
   }
 }

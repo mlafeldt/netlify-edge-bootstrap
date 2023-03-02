@@ -1,3 +1,4 @@
+import { isCacheable } from "./cache.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
@@ -10,9 +11,9 @@ import {
   hasFeatureFlag,
 } from "./request.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
+import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { getEnvironment } from "./environment.ts";
-import { isCacheable } from "./cache.ts";
-import { parseInvocationMetadata, Router } from "./router.ts";
+import { Router } from "./router.ts";
 import { ErrorType, UnhandledFunctionError } from "./util/errors.ts";
 
 interface HandleRequestOptions {

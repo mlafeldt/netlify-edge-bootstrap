@@ -11,7 +11,7 @@ export interface Stage2 {
   metadata?: Metadata;
 }
 
-export type Functions = Record<string, EdgeFunction>;
+export type Functions = Record<string, EdgeFunction | undefined>;
 
 export interface Metadata {
   functions: Record<string, FunctionMetadata>;

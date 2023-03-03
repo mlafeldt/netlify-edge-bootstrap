@@ -1,5 +1,5 @@
-import { EdgeFunction } from "./edge_function.ts";
 import { InvocationMetadata } from "./invocation_metadata.ts";
+import type { Functions } from "./stage_2.ts";
 
 interface Route {
   function: string;
@@ -8,11 +8,11 @@ interface Route {
 
 export class Router {
   private exclusionPatterns: Map<string, RegExp[]>;
-  private functions: Record<string, EdgeFunction>;
+  private functions: Functions;
   private routes: Route[];
 
   constructor(
-    functions: Record<string, EdgeFunction>,
+    functions: Functions,
     metadata: InvocationMetadata,
   ) {
     const exclusionPatterns = new Map<string, RegExp[]>();
@@ -38,6 +38,10 @@ export class Router {
       function: route.function,
       pattern: new RegExp(route.pattern),
     }));
+  }
+
+  getFunction(name: string) {
+    return this.functions[name];
   }
 
   // Returns a list of functions that should run for a given URL path.

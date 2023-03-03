@@ -1,9 +1,9 @@
 import "./types.ts";
 import { getEnvironment } from "../environment.ts";
 import { Metadata } from "../stage_2.ts";
-import { requestStore } from "../handler.ts";
 import { StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
+import { requestStore } from "../request_store.ts";
 import { StackTracer } from "../util/stack_tracer.ts";
 
 type LogType = "systemJSON";
@@ -47,9 +47,9 @@ export const instrumentedLog = (
     }
 
     if (metadata.requestID) {
-      const request = requestStore.get(metadata.requestID);
-      if (request) {
-        const url = new URL(request.url);
+      const chain = requestStore.get(metadata.requestID);
+      if (chain) {
+        const url = new URL(chain.request.url);
         metadata.url = url.toString();
       }
     }
@@ -61,10 +61,10 @@ export const instrumentedLog = (
   // we only want to print it when debug logging is enabled.
   if (data[0] instanceof StructuredLogger) {
     const structuredLogger = data[0].serialize();
-    const request = requestStore.get(
+    const chain = requestStore.get(
       structuredLogger.requestID ?? requestID ?? "",
     );
-    if (!request?.headers.has(InternalHeaders.DebugLogging)) {
+    if (!chain?.request?.headers.has(InternalHeaders.DebugLogging)) {
       return;
     }
 

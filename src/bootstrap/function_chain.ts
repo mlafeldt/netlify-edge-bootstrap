@@ -4,7 +4,6 @@ import {
   supportsRewriteBypass,
 } from "./bypass.ts";
 import type { Context, NextOptions } from "./context.ts";
-import type { EdgeFunction } from "./edge_function.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
@@ -32,16 +31,11 @@ import { StackTracer } from "./util/stack_tracer.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
-  functions: RequestFunction[];
+  functionNames: string[];
   initialRequestURL?: URL;
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
-}
-
-interface RequestFunction {
-  name: string;
-  function: EdgeFunction;
 }
 
 interface RunFunctionOptions {
@@ -56,7 +50,7 @@ class FunctionChain {
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
   debug: boolean;
-  functions: RequestFunction[];
+  functionNames: string[];
   initialHeaders: Headers;
   initialRequestURL: URL;
   rawLogger: Logger;
@@ -67,7 +61,7 @@ class FunctionChain {
     {
       request,
       cookies = new CookieStore(request),
-      functions,
+      functionNames,
       initialRequestURL = new URL(request.url),
       rawLogger,
       router,
@@ -77,7 +71,7 @@ class FunctionChain {
     this.cookies = cookies;
     this.contextNextCalls = [];
     this.debug = Boolean(request.headers.get(InternalHeaders.DebugLogging));
-    this.functions = functions;
+    this.functionNames = functionNames;
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
     this.rawLogger = rawLogger;
@@ -221,15 +215,25 @@ class FunctionChain {
     return context;
   }
 
+  getFunction(functionIndex: number) {
+    const name = this.functionNames[functionIndex];
+
+    if (name === undefined) {
+      return;
+    }
+
+    return this.router.getFunction(name);
+  }
+
   getLogFunction(functionIndex: number) {
-    const { name } = this.functions[functionIndex];
+    const functionName = this.functionNames[functionIndex];
     const logger = this.rawLogger ?? console.log;
 
     return (...data: unknown[]) => {
       return instrumentedLog(
         logger,
         data,
-        name,
+        functionName,
         getRequestID(this.request),
       );
     };
@@ -315,7 +319,7 @@ class FunctionChain {
     previousRewrites = new Set(),
     requireFinalResponse = false,
   }: RunFunctionOptions): Promise<Response> {
-    const func = this.functions[functionIndex];
+    const func = this.getFunction(functionIndex);
 
     // We got to the end of the chain and the last function has early-returned.
     if (func === undefined) {
@@ -364,7 +368,7 @@ class FunctionChain {
       // stack trace.
       const result = await callWithNamedWrapper(
         // Type-asserting to `unknown` because user code can return anything.
-        () => func.function(this.request, context) as unknown,
+        () => func(this.request, context) as unknown,
         StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
@@ -422,7 +426,7 @@ class FunctionChain {
 
           const newChain = new FunctionChain({
             cookies: this.cookies,
-            functions,
+            functionNames: functions.map((route) => route.name),
             initialRequestURL: this.initialRequestURL,
             rawLogger: this.rawLogger,
             request: newRequest,

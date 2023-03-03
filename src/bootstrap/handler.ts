@@ -1,5 +1,4 @@
 import { isCacheable } from "./cache.ts";
-import { EdgeFunction } from "./edge_function.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
@@ -10,33 +9,34 @@ import {
   getPassthroughHeaders,
   hasFeatureFlag,
 } from "./request.ts";
+import { getEnvironment } from "./environment.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
-import { getEnvironment } from "./environment.ts";
+import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
+import type { Functions } from "./stage_2.ts";
 import { ErrorType, UnhandledFunctionError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
 }
-export const requestStore = new Map<string, EdgeRequest>();
 
 const handleRequest = async (
   req: Request,
-  functions: Record<string, EdgeFunction>,
+  functions: Functions,
   { rawLogger = console.log }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
 
   try {
-    const functionNames = req.headers.get(InternalHeaders.EdgeFunctions);
+    const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
     const metadata = parseInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
     const router = new Router(functions, metadata);
 
-    if (id == null || functionNames == null) {
+    if (id == null || functionNamesHeader == null) {
       return new Response(
         "Request must have headers for request ID and functions names",
         {
@@ -46,18 +46,16 @@ const handleRequest = async (
       );
     }
 
+    const functionNames = functionNamesHeader.split(",");
     const edgeReq = new EdgeRequest(req);
     const chain = new FunctionChain({
-      functions: functionNames.split(",").map((name) => ({
-        name,
-        function: functions[name],
-      })),
+      functionNames,
       rawLogger,
       request: edgeReq,
       router,
     });
 
-    requestStore.set(id, edgeReq);
+    requestStore.set(id, chain);
 
     if (req.headers.get(InternalHeaders.DebugLogging)) {
       logger
@@ -83,10 +81,7 @@ const handleRequest = async (
           .log("user-defined header overwritten by passthrough header");
       }
 
-      response.headers.set(
-        key,
-        value,
-      );
+      response.headers.set(key, value);
     });
 
     const endTime = performance.now();
@@ -152,9 +147,10 @@ const handleRequest = async (
         };
       }
 
-      logger.withFields(fields).withRequestID(id).log(
-        "uncaught exception while handling request",
-      );
+      logger
+        .withFields(fields)
+        .withRequestID(id)
+        .log("uncaught exception while handling request");
     }
 
     return new Response(errorString, {

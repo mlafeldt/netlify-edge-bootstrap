@@ -6,6 +6,7 @@ import {
 
 import { handleRequest } from "./handler.ts";
 import { patchLogger } from "./log/instrumented_log.ts";
+import { patchResponseRedirect } from "./util/redirect.ts";
 import { Functions, Metadata } from "./stage_2.ts";
 
 export const serve = (functions: Functions, metadata?: Metadata) => {
@@ -17,6 +18,8 @@ export const serve = (functions: Functions, metadata?: Metadata) => {
   globalThis.console.debug = patchLogger(globalThis.console.debug, metadata);
   globalThis.console.warn = patchLogger(globalThis.console.warn, metadata);
   globalThis.console.info = patchLogger(globalThis.console.info, metadata);
+
+  Response.redirect = patchResponseRedirect(Response.redirect, metadata);
 
   const serveOptions: ServeInit = {
     // Adding a no-op listener to avoid the default one, which prints a message

@@ -11,6 +11,8 @@ export class StackTracer extends Error {
   }: {
     functions?: Record<string, FunctionMetadata>;
   }) {
+    Error.stackTraceLimit = 50;
+
     super();
 
     this.functions = new Map();
@@ -32,7 +34,6 @@ export class StackTracer extends Error {
     const prepareStackTrace = Error.prepareStackTrace;
     const stackTraceLimit = Error.stackTraceLimit;
 
-    Error.stackTraceLimit = Infinity;
     Error.prepareStackTrace = (_, callSites) => {
       callSites.forEach((callSite) => {
         const requestID = StackTracer.deserializeRequestID(

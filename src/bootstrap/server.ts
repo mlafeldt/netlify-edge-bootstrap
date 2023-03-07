@@ -3,6 +3,7 @@ import {
   serve as denoServe,
   ServeInit,
 } from "https://deno.land/std@0.170.0/http/server.ts";
+import { patchDenoFS } from "./deno-fs.ts";
 
 import { handleRequest } from "./handler.ts";
 import { patchLogger } from "./log/instrumented_log.ts";
@@ -10,6 +11,7 @@ import { patchResponseRedirect } from "./util/redirect.ts";
 import { Functions, Metadata } from "./stage_2.ts";
 
 export const serve = (functions: Functions, metadata?: Metadata) => {
+  // Grab console.log before we patch it
   const consoleLog = globalThis.console.log;
 
   // based on https://developer.mozilla.org/en-US/docs/Web/API/console#instance_methods
@@ -18,6 +20,17 @@ export const serve = (functions: Functions, metadata?: Metadata) => {
   globalThis.console.debug = patchLogger(globalThis.console.debug, metadata);
   globalThis.console.warn = patchLogger(globalThis.console.warn, metadata);
   globalThis.console.info = patchLogger(globalThis.console.info, metadata);
+
+  // based on https://deno.com/deploy/docs/runtime-fs
+  globalThis.Deno.cwd = patchDenoFS(globalThis.Deno.cwd);
+  globalThis.Deno.readDir = patchDenoFS(globalThis.Deno.readDir);
+  globalThis.Deno.readFile = patchDenoFS(globalThis.Deno.readFile);
+  globalThis.Deno.readTextFile = patchDenoFS(globalThis.Deno.readTextFile);
+  globalThis.Deno.open = patchDenoFS(globalThis.Deno.open);
+  globalThis.Deno.stat = patchDenoFS(globalThis.Deno.stat);
+  globalThis.Deno.lstat = patchDenoFS(globalThis.Deno.lstat);
+  globalThis.Deno.realPath = patchDenoFS(globalThis.Deno.realPath);
+  globalThis.Deno.readLink = patchDenoFS(globalThis.Deno.readLink);
 
   Response.redirect = patchResponseRedirect(Response.redirect, metadata);
 

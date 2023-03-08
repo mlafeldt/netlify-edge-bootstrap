@@ -1,5 +1,9 @@
+interface FunctionConfig {
+  excluded_patterns?: string[] | null;
+  on_error?: string;
+}
 export interface InvocationMetadata {
-  function_config?: Record<string, { excluded_patterns: string[] | null }>;
+  function_config?: Record<string, FunctionConfig>;
   routes?: { function: string; pattern: string }[] | null;
 }
 

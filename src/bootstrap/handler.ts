@@ -1,7 +1,7 @@
 import { isCacheable } from "./cache.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
-import { logger } from "./log/logger.ts";
+import { logger as systemLogger } from "./log/logger.ts";
 import {
   EdgeRequest,
   getCacheMode,
@@ -28,13 +28,14 @@ const handleRequest = async (
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
+  const logger = systemLogger.withRequestID(id);
 
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
     const metadata = parseInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
-    const router = new Router(functions, metadata);
+    const router = new Router(functions, metadata, logger);
 
     if (id == null || functionNamesHeader == null) {
       return new Response(
@@ -64,7 +65,6 @@ const handleRequest = async (
           function_names: functionNames,
           mode: getCacheMode(edgeReq),
         })
-        .withRequestID(id)
         .log("Started edge function invocation");
     }
 
@@ -77,7 +77,6 @@ const handleRequest = async (
       if (response.headers.has(key)) {
         logger
           .withFields({ header: key })
-          .withRequestID(id)
           .log("user-defined header overwritten by passthrough header");
       }
 
@@ -89,7 +88,6 @@ const handleRequest = async (
     if (req.headers.get(InternalHeaders.DebugLogging)) {
       logger
         .withFields({ ef_duration: endTime - startTime })
-        .withRequestID(id)
         .log("Finished edge function invocation");
     }
 
@@ -105,7 +103,6 @@ const handleRequest = async (
           cache_control: cacheControl,
           mode: getCacheMode(edgeReq),
         })
-        .withRequestID(id)
         .log("Edge function returned cacheable cache-control headers");
     }
 
@@ -149,7 +146,6 @@ const handleRequest = async (
 
       logger
         .withFields(fields)
-        .withRequestID(id)
         .log("uncaught exception while handling request");
     }
 

@@ -23,7 +23,7 @@ import {
 } from "./request.ts";
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
-import { Router } from "./router.ts";
+import { OnError, Router } from "./router.ts";
 import { UnhandledFunctionError, UnretriableError } from "./util/errors.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { isRedirect } from "./util/redirect.ts";
@@ -222,7 +222,16 @@ class FunctionChain {
       return;
     }
 
-    return this.router.getFunction(name);
+    const source = this.router.getFunction(name);
+
+    if (source === undefined) {
+      throw new Error(`Could not find function '${name}'`);
+    }
+
+    return {
+      name,
+      source,
+    };
   }
 
   getLogFunction(functionIndex: number) {
@@ -359,6 +368,7 @@ class FunctionChain {
       return this.fetchPassthrough();
     }
 
+    const { name, source } = func;
     const context = this.getContext(functionIndex);
 
     try {
@@ -368,7 +378,7 @@ class FunctionChain {
       // stack trace.
       const result = await callWithNamedWrapper(
         // Type-asserting to `unknown` because user code can return anything.
-        () => func(this.request, context) as unknown,
+        () => source(this.request, context) as unknown,
         StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
@@ -458,12 +468,54 @@ class FunctionChain {
       }
 
       throw new UnhandledFunctionError(
-        `Function '${func.name}' returned an unsupported value. Accepted types are 'Response' or 'undefined'`,
+        `Function '${name}' returned an unsupported value. Accepted types are 'Response' or 'undefined'`,
       );
     } catch (error) {
+      const onError = this.router.getOnError(name);
+      const supportsFailureModes = hasFeatureFlag(
+        this.request,
+        "edge_functions_bootstrap_failure_mode",
+      );
+
+      // In the default failure mode, we just re-throw the error. It will be
+      // handled upstream.
+      if (!supportsFailureModes || onError === OnError.Fail) {
+        context.log(error);
+
+        throw error;
+      }
+
+      // In the "bypass" failure mode, we run the next function in the chain.
+      if (onError === OnError.Bypass) {
+        context.log(error);
+
+        return this.runFunction({
+          functionIndex: functionIndex + 1,
+          nextOptions,
+          requireFinalResponse,
+        });
+      }
+
+      // At this point, we know that the failure mode is a rewrite. If the
+      // caller requires a final response (e.g. they call `context.next()`),
+      // we re-throw the error and let the caller handle it (either using a
+      // `try/catch` or its own failure mode).
+      if (requireFinalResponse) {
+        throw error;
+      }
+
       context.log(error);
 
-      throw error;
+      // Otherwise, return a bypass response with the new URL.
+      const url = new URL(onError, this.request.url);
+      const newRequest = new EdgeRequest(url, this.request);
+
+      return new BypassResponse({
+        cookies: this.cookies,
+        currentRequest: newRequest,
+        initialRequestHeaders: this.initialHeaders,
+        initialRequestURL: this.initialRequestURL,
+      });
     }
   }
 }

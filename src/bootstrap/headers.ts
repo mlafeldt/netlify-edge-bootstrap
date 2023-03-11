@@ -31,6 +31,7 @@ export enum InternalHeaders {
 
 export enum StandardHeaders {
   CacheControl = "cache-control",
+  ContentLength = "content-length",
   ContentType = "content-type",
 }
 

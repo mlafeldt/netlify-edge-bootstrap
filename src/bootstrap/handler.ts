@@ -106,6 +106,11 @@ const handleRequest = async (
         .log("Edge function returned cacheable cache-control headers");
     }
 
+    // It's possible that user code may have set a `content-length` value that
+    // doesn't match what we're actually sending in the body, so we just strip
+    // out the header entirely since it's not required in an HTTP/2 connection.
+    response.headers.delete(StandardHeaders.ContentLength);
+
     return response;
   } catch (error) {
     let errorString = String(error);

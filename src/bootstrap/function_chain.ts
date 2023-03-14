@@ -267,9 +267,8 @@ class FunctionChain {
 
   async rewrite(url: string | URL) {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
-    const requestUrl = new URL(this.request.url);
 
-    if (newUrl.origin !== requestUrl.origin) {
+    if (newUrl.origin !== this.initialRequestURL.origin) {
       throw new Error(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
@@ -382,11 +381,19 @@ class FunctionChain {
         StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
-      // If the function returned a URL object, it means a rewrite.
-      if (result instanceof URL) {
-        if (result.origin !== new URL(this.request.url).origin) {
+      // If the function returned a Request object, it means a rewrite.
+      if (result instanceof Request) {
+        if (result.body !== null) {
           throw new Error(
-            `Rewrite to '${result.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
+            `A 'Request' object expressing a rewrite must not contain a body`,
+          );
+        }
+
+        const rewriteURL = new URL(result.url);
+
+        if (rewriteURL.origin !== this.initialRequestURL.origin) {
+          throw new Error(
+            `Rewrite to '${rewriteURL.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
           );
         }
 
@@ -403,19 +410,24 @@ class FunctionChain {
           supportsRewriteBypass(this.request) &&
           this.request.body === null
         ) {
-          const isLoop = previousRewrites.has(result.pathname);
+          const isLoop = previousRewrites.has(rewriteURL.pathname);
 
           if (isLoop) {
             throw new Error(
-              `Loop detected: the path '${result.pathname}' has been both the source and the target of a rewrite in the same request`,
+              `Loop detected: the path '${rewriteURL.pathname}' has been both the source and the target of a rewrite in the same request`,
             );
           }
 
-          const newRequest = new EdgeRequest(result, this.request);
+          const newRequest = new EdgeRequest(rewriteURL, this.request);
+
+          // Setting any headers that may have been added to the request.
+          result.headers.forEach((value, name) => {
+            newRequest.headers.append(name, value);
+          });
 
           // Before returning the bypass response, we need to run any functions
           // configured for the new path.
-          const functions = this.router.match(result);
+          const functions = this.router.match(rewriteURL);
 
           // If there are no functions configured for the new path, we can run
           // the rewrite. This means making a passthrough call if the caller
@@ -423,7 +435,7 @@ class FunctionChain {
           // otherwise.
           if (functions.length === 0) {
             if (requireFinalResponse) {
-              return this.fetchPassthrough(result);
+              return this.fetchPassthrough(rewriteURL);
             }
 
             return new BypassResponse({
@@ -444,12 +456,15 @@ class FunctionChain {
           });
 
           return newChain.run({
-            previousRewrites: new Set([...previousRewrites, result.pathname]),
+            previousRewrites: new Set([
+              ...previousRewrites,
+              rewriteURL.pathname,
+            ]),
             requireFinalResponse,
           });
         }
 
-        return this.fetchPassthrough(result);
+        return this.fetchPassthrough(rewriteURL);
       }
 
       // If the function returned undefined, it means a bypass. Call the next

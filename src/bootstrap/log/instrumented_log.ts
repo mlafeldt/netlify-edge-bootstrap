@@ -4,7 +4,7 @@ import { Metadata } from "../stage_2.ts";
 import { StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
 import { requestStore } from "../request_store.ts";
-import { StackTracer } from "../util/stack_tracer.ts";
+import { getExecutionContext } from "../util/execution_context.ts";
 
 type LogType = "systemJSON";
 
@@ -83,9 +83,7 @@ export type Logger = (...data: unknown[]) => void;
 export const patchLogger = (logger: Logger, metadata?: Metadata) => {
   return (...data: unknown[]) => {
     try {
-      const { functionName, requestID } = new StackTracer({
-        functions: metadata?.functions,
-      });
+      const { functionName, requestID } = getExecutionContext(metadata);
 
       return instrumentedLog(logger, data, functionName, requestID);
     } catch {

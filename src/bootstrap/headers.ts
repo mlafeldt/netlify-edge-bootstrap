@@ -89,3 +89,18 @@ export const serialize = (headers: Headers) => {
 
   return headersObject;
 };
+
+// Convenience method for safely mutating the headers in a response, even when
+// their guard is set to `immutable`, which is the case when the response was
+// produced by a `fetch` call. See:
+// https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#guard
+export const mutateHeaders = (
+  res: Response,
+  callback: (headers: Headers) => void,
+) => {
+  const newRes = new Response(res.body, res);
+
+  callback(newRes.headers);
+
+  return newRes;
+};

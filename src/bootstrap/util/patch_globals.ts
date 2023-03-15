@@ -1,5 +1,4 @@
 import { patchLogger } from "../log/instrumented_log.ts";
-import { patchRequest } from "../request.ts";
 import { Metadata } from "../stage_2.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
 
@@ -12,7 +11,4 @@ export const patchGlobals = (metadata?: Metadata) => {
   globalThis.console.info = patchLogger(globalThis.console.info, metadata);
 
   Response.redirect = patchResponseRedirect(Response.redirect, metadata);
-
-  // @ts-expect-error `globalThis` does not have a type for `Request`.
-  globalThis.Request = patchRequest(globalThis.Request, metadata);
 };

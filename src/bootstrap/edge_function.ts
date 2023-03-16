@@ -7,8 +7,8 @@ interface EdgeFunction {
   ):
     | Response
     | Promise<Response>
-    | Request
-    | Promise<Request>
+    | URL
+    | Promise<URL>
     | void
     | Promise<void>;
 }

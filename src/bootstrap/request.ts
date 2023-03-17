@@ -6,11 +6,8 @@ import {
   InternalHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
-import { detachedLogger } from "./log/logger.ts";
 import { parseSiteHeader, Site } from "./site.ts";
-import { Metadata } from "./stage_2.ts";
 import { OriginResponse } from "./response.ts";
-import { getExecutionContext } from "./util/execution_context.ts";
 
 export const internalsSymbol = Symbol("Netlify Internals");
 
@@ -188,34 +185,3 @@ export class PassthroughRequest extends Request {
     }
   }
 }
-
-// Patch the constructor of the global `Request` class so it accepts a relative
-// path. It is allowed by the spec: https://fetch.spec.whatwg.org/#dom-request.
-export const patchRequest = (
-  RawRequest: typeof Request,
-  metadata?: Metadata,
-) => {
-  return class PatchedRequest extends RawRequest {
-    constructor(input: RequestInfo | URL, init?: RequestInit) {
-      if (typeof input === "string" && input.startsWith("/")) {
-        try {
-          const { chain } = getExecutionContext(metadata);
-
-          if (chain === undefined) {
-            throw new Error("Could not find chain");
-          }
-
-          super(new URL(input, chain.request.url), init);
-
-          return;
-        } catch (error) {
-          detachedLogger.withError(error).log(
-            "An error occurred in the patched Request",
-          );
-        }
-      }
-
-      super(input, init);
-    }
-  };
-};

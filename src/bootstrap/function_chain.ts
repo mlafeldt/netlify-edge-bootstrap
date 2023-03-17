@@ -7,7 +7,12 @@ import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { logger } from "./log/logger.ts";
-import { hasMutatedHeaders, InternalHeaders } from "./headers.ts";
+import {
+  hasMutatedHeaders,
+  InternalHeaders,
+  mutateHeaders,
+  StandardHeaders,
+} from "./headers.ts";
 import {
   CacheMode,
   EdgeRequest,
@@ -474,6 +479,21 @@ class FunctionChain {
 
       // If the function returned a response, return that.
       if (result instanceof Response) {
+        // It's possible that user code may have set a `content-length` value
+        // that doesn't match what we're actually sending in the body, so we
+        // just strip out the header entirely since it's not required in an
+        // HTTP/2 connection.
+        if (
+          hasFeatureFlag(
+            this.request,
+            "edge_functions_bootstrap_strip_content_length",
+          )
+        ) {
+          return mutateHeaders(result, (headers) => {
+            headers.delete(StandardHeaders.ContentLength);
+          });
+        }
+
         return result;
       }
 

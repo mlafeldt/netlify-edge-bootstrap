@@ -10,7 +10,7 @@ import {
   hasFeatureFlag,
 } from "./request.ts";
 import { getEnvironment } from "./environment.ts";
-import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
+import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
@@ -104,20 +104,6 @@ const handleRequest = async (
           mode: getCacheMode(edgeReq),
         })
         .log("Edge function returned cacheable cache-control headers");
-    }
-
-    // It's possible that user code may have set a `content-length` value that
-    // doesn't match what we're actually sending in the body, so we just strip
-    // out the header entirely since it's not required in an HTTP/2 connection.
-    if (
-      hasFeatureFlag(
-        edgeReq,
-        "edge_functions_bootstrap_strip_content_length",
-      )
-    ) {
-      return mutateHeaders(response, (headers) => {
-        headers.delete(StandardHeaders.ContentLength);
-      });
     }
 
     return response;

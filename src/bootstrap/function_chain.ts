@@ -405,39 +405,33 @@ class FunctionChain {
         // Rather than rewriting inside the isolate by making a passthrough
         // request and returning the response, we can run the rewrite in our
         // edge nodes by returning a special bypass response. We can do this
-        // when all the following conditions are met:
+        // when the following conditions are met:
         //
         // 1. The incoming request has a header that indicates that the edge
         //    node supports this optimization
         // 2. The request doesn't have a body — if it does, it's already been
         //    consumed and our edge node won't be able to process it further
-        if (
-          supportsRewriteBypass(this.request) &&
-          this.request.body === null
-        ) {
-          const isLoop = previousRewrites.has(result.pathname);
+        const canBypass = supportsRewriteBypass(this.request) &&
+          this.request.body === null;
+        const isLoop = previousRewrites.has(result.pathname);
 
-          if (isLoop) {
-            throw new Error(
-              `Loop detected: the path '${result.pathname}' has been both the source and the target of a rewrite in the same request`,
-            );
-          }
+        if (isLoop) {
+          throw new Error(
+            `Loop detected: the path '${result.pathname}' has been both the source and the target of a rewrite in the same request`,
+          );
+        }
 
-          const newRequest = new EdgeRequest(result, this.request);
+        const newRequest = new EdgeRequest(result, this.request);
 
-          // Before returning the bypass response, we need to run any functions
-          // configured for the new path.
-          const functions = this.router.match(result);
+        // Run any functions configured for the new path.
+        const functions = this.router.match(result);
 
-          // If there are no functions configured for the new path, we can run
-          // the rewrite. This means making a passthrough call if the caller
-          // has requested a final response, or returning a bypass response
-          // otherwise.
-          if (functions.length === 0) {
-            if (requireFinalResponse) {
-              return this.fetchPassthrough(result);
-            }
-
+        // If there are no functions configured for the new path, we can run
+        // the rewrite. This means making a passthrough call if the caller
+        // has requested a final response, or returning a bypass response
+        // otherwise.
+        if (functions.length === 0) {
+          if (canBypass && !requireFinalResponse) {
             return new BypassResponse({
               cookies: this.cookies,
               currentRequest: newRequest,
@@ -446,25 +440,25 @@ class FunctionChain {
             });
           }
 
-          const newChain = new FunctionChain({
-            cookies: this.cookies,
-            functionNames: functions.map((route) => route.name),
-            initialRequestURL: this.initialRequestURL,
-            rawLogger: this.rawLogger,
-            request: newRequest,
-            router: this.router,
-          });
-
-          return newChain.run({
-            previousRewrites: new Set([
-              ...previousRewrites,
-              result.pathname,
-            ]),
-            requireFinalResponse,
-          });
+          return this.fetchPassthrough(result);
         }
 
-        return this.fetchPassthrough(result);
+        const newChain = new FunctionChain({
+          cookies: this.cookies,
+          functionNames: functions.map((route) => route.name),
+          initialRequestURL: this.initialRequestURL,
+          rawLogger: this.rawLogger,
+          request: newRequest,
+          router: this.router,
+        });
+
+        return newChain.run({
+          previousRewrites: new Set([
+            ...previousRewrites,
+            result.pathname,
+          ]),
+          requireFinalResponse: requireFinalResponse || !canBypass,
+        });
       }
 
       // If the function returned undefined, it means a bypass. Call the next
@@ -498,7 +492,7 @@ class FunctionChain {
       }
 
       throw new UnhandledFunctionError(
-        `Function '${name}' returned an unsupported value. Accepted types are 'Response' or 'undefined'`,
+        `Function '${name}' returned an unsupported value. Accepted types are 'Response', 'URL' or 'undefined'`,
       );
     } catch (error) {
       const onError = this.router.getOnError(name);

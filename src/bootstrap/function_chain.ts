@@ -29,7 +29,7 @@ import {
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { OnError, Router } from "./router.ts";
-import { UnhandledFunctionError, UnretriableError } from "./util/errors.ts";
+import { UnretriableError, UserError } from "./util/errors.ts";
 import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { isRedirect } from "./util/redirect.ts";
 import { StackTracer } from "./util/stack_tracer.ts";
@@ -178,7 +178,7 @@ class FunctionChain {
       newRequest &&
       new URL(newRequest.url).origin !== new URL(this.request.url).origin
     ) {
-      throw new Error(
+      throw new UserError(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
     }
@@ -282,7 +282,7 @@ class FunctionChain {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
 
     if (newUrl.origin !== this.initialRequestURL.origin) {
-      throw new Error(
+      throw new UserError(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
     }
@@ -397,7 +397,7 @@ class FunctionChain {
       // If the function returned a URL object, it means a rewrite.
       if (result instanceof URL) {
         if (result.origin !== this.initialRequestURL.origin) {
-          throw new Error(
+          throw new UserError(
             `Rewrite to '${result.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
           );
         }
@@ -416,7 +416,7 @@ class FunctionChain {
         const isLoop = previousRewrites.has(result.pathname);
 
         if (isLoop) {
-          throw new Error(
+          throw new UserError(
             `Loop detected: the path '${result.pathname}' has been both the source and the target of a rewrite in the same request`,
           );
         }
@@ -491,7 +491,7 @@ class FunctionChain {
         return result;
       }
 
-      throw new UnhandledFunctionError(
+      throw new UserError(
         `Function '${name}' returned an unsupported value. Accepted types are 'Response', 'URL' or 'undefined'`,
       );
     } catch (error) {

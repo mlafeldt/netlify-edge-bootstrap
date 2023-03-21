@@ -15,7 +15,7 @@ import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
-import { ErrorType, UnhandledFunctionError } from "./util/errors.ts";
+import { ErrorType, UserError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
@@ -127,7 +127,7 @@ const handleRequest = async (
       let fields: Record<string, string | undefined> = {};
 
       if (error instanceof Error) {
-        const errorType = error instanceof UnhandledFunctionError
+        const errorType = error instanceof UserError
           ? ErrorType.User
           : ErrorType.Unknown;
 

@@ -315,12 +315,7 @@ class FunctionChain {
     // `context.cookies` interface. If the response is a bypass, we don't
     // need to do it because the right headers have already been added to
     // the bypass body.
-    if (
-      !(response instanceof BypassResponse && hasFeatureFlag(
-        this.request,
-        "edge_functions_bootstrap_bypass_response_headers",
-      ))
-    ) {
+    if (!(response instanceof BypassResponse)) {
       // A response produced by `Response.redirect` has immutable headers, so
       // we detect that case and create a new response where we can apply the
       // cookies.
@@ -532,14 +527,17 @@ class FunctionChain {
 
       // Otherwise, return a bypass response with the new URL.
       const url = new URL(onError, this.request.url);
-      const newRequest = new EdgeRequest(url, this.request);
 
-      return new BypassResponse({
-        cookies: this.cookies,
-        currentRequest: newRequest,
-        initialRequestHeaders: this.initialHeaders,
-        initialRequestURL: this.initialRequestURL,
-      });
+      if (supportsRewriteBypass(this.request)) {
+        return new BypassResponse({
+          cookies: this.cookies,
+          currentRequest: new EdgeRequest(url, this.request),
+          initialRequestHeaders: this.initialHeaders,
+          initialRequestURL: this.initialRequestURL,
+        });
+      }
+
+      return this.fetchPassthrough(url);
     }
   }
 }

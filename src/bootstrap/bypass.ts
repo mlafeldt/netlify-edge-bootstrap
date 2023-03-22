@@ -7,7 +7,7 @@ import {
   serialize as serializeHeaders,
   StandardHeaders,
 } from "./headers.ts";
-import { EdgeRequest, getBypassSettings, hasFeatureFlag } from "./request.ts";
+import { EdgeRequest, getBypassSettings } from "./request.ts";
 
 enum BypassDirective {
   Passthrough = "passthrough",
@@ -87,12 +87,7 @@ export class BypassResponse extends Response {
 
     const responseHeaders = serializeHeaders(cookies.apply(new Headers()));
 
-    if (
-      hasFeatureFlag(
-        currentRequest,
-        "edge_functions_bootstrap_bypass_response_headers",
-      ) && Object.keys(responseHeaders).length !== 0
-    ) {
+    if (Object.keys(responseHeaders).length !== 0) {
       payload.response_headers = responseHeaders;
     }
 

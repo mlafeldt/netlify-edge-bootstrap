@@ -1,6 +1,22 @@
+import { EdgeRequest, getFeatureFlags } from "./request.ts";
+
 export type FeatureFlags = Record<string, boolean>;
 
-function parseFeatureFlagsHeader(
+export enum FeatureFlag {
+  FailureModes = "edge_functions_bootstrap_failure_mode",
+  LogCacheControl = "edge_functions_bootstrap_log_cache_control",
+  RunFunctionsOnFetch = "edge_functions_bootstrap_run_functions_fetch",
+  StripContentLength = "edge_functions_bootstrap_strip_content_length",
+  WarnContextNext = "edge_functions_bootstrap_warn_context_next",
+}
+
+export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {
+  const featureFlags = getFeatureFlags(req);
+
+  return Boolean(featureFlags[flag]);
+};
+
+export function parseFeatureFlagsHeader(
   header: string | null,
 ): FeatureFlags {
   if (!header) {
@@ -14,5 +30,3 @@ function parseFeatureFlagsHeader(
     return {};
   }
 }
-
-export { parseFeatureFlagsHeader };

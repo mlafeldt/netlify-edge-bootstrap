@@ -6,6 +6,7 @@ import {
 import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
+import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import { logger } from "./log/logger.ts";
 import {
   hasMutatedHeaders,
@@ -22,7 +23,6 @@ import {
   getIP,
   getRequestID,
   getSite,
-  hasFeatureFlag,
   PassthroughRequest,
   setPassthroughHeaders,
 } from "./request.ts";
@@ -126,12 +126,7 @@ class FunctionChain {
           return new Response(null, { status: 499 });
         }
 
-        if (
-          hasFeatureFlag(
-            this.request,
-            "edge_functions_bootstrap_log_passthrough_errors",
-          )
-        ) {
+        if (hasFlag(this.request, FeatureFlag.StripContentLength)) {
           fetchLogger.withFields({ error: error.message }).log(
             "Error in passthrough call",
           );
@@ -235,13 +230,16 @@ class FunctionChain {
       return;
     }
 
-    const source = this.router.getFunction(name);
+    const func = this.router.getFunction(name);
 
-    if (source === undefined) {
+    if (func === undefined) {
       throw new Error(`Could not find function '${name}'`);
     }
 
+    const { config, source } = func;
+
     return {
+      config,
       name,
       source,
     };
@@ -375,7 +373,7 @@ class FunctionChain {
       return this.fetchPassthrough();
     }
 
-    const { name, source } = func;
+    const { config, name, source } = func;
     const context = this.getContext(functionIndex);
 
     try {
@@ -472,12 +470,7 @@ class FunctionChain {
         // that doesn't match what we're actually sending in the body, so we
         // just strip out the header entirely since it's not required in an
         // HTTP/2 connection.
-        if (
-          hasFeatureFlag(
-            this.request,
-            "edge_functions_bootstrap_strip_content_length",
-          )
-        ) {
+        if (hasFlag(this.request, FeatureFlag.StripContentLength)) {
           return mutateHeaders(result, (headers) => {
             headers.delete(StandardHeaders.ContentLength);
           });
@@ -490,22 +483,21 @@ class FunctionChain {
         `Function '${name}' returned an unsupported value. Accepted types are 'Response', 'URL' or 'undefined'`,
       );
     } catch (error) {
-      const onError = this.router.getOnError(name);
-      const supportsFailureModes = hasFeatureFlag(
+      const supportsFailureModes = hasFlag(
         this.request,
-        "edge_functions_bootstrap_failure_mode",
+        FeatureFlag.FailureModes,
       );
 
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
-      if (!supportsFailureModes || onError === OnError.Fail) {
+      if (!supportsFailureModes || config.onError === OnError.Fail) {
         context.log(error);
 
         throw error;
       }
 
       // In the "bypass" failure mode, we run the next function in the chain.
-      if (onError === OnError.Bypass) {
+      if (config.onError === OnError.Bypass) {
         context.log(error);
 
         return this.runFunction({
@@ -526,7 +518,7 @@ class FunctionChain {
       context.log(error);
 
       // Otherwise, return a bypass response with the new URL.
-      const url = new URL(onError, this.request.url);
+      const url = new URL(config.onError, this.request.url);
 
       if (supportsRewriteBypass(this.request)) {
         return new BypassResponse({

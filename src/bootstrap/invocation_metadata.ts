@@ -1,5 +1,6 @@
-interface FunctionConfig {
+export interface FunctionConfig {
   excluded_patterns?: string[] | null;
+  generator?: string;
   on_error?: string;
 }
 export interface InvocationMetadata {

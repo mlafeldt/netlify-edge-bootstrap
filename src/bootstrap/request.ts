@@ -128,15 +128,6 @@ interface PassthroughRequestOptions {
   url?: URL;
 }
 
-/**
- * Evaluates a specific feature flag for a request.
- */
-export const hasFeatureFlag = (request: EdgeRequest, flagName: string) => {
-  const flags = getFeatureFlags(request);
-
-  return Boolean(flags[flagName]);
-};
-
 export class PassthroughRequest extends Request {
   constructor({
     req,

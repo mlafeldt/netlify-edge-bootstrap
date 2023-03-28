@@ -1,4 +1,5 @@
 import { isCacheable } from "./cache.ts";
+import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { logger as systemLogger } from "./log/logger.ts";
@@ -7,7 +8,6 @@ import {
   getCacheMode,
   getFeatureFlags,
   getPassthroughHeaders,
-  hasFeatureFlag,
 } from "./request.ts";
 import { getEnvironment } from "./environment.ts";
 import { InternalHeaders, StandardHeaders } from "./headers.ts";
@@ -92,9 +92,9 @@ const handleRequest = async (
     }
 
     const cacheControl = response.headers.get(StandardHeaders.CacheControl);
-    const shouldLogCacheControl = hasFeatureFlag(
+    const shouldLogCacheControl = hasFlag(
       edgeReq,
-      "edge_functions_bootstrap_log_cache_control",
+      FeatureFlag.LogCacheControl,
     );
 
     if (shouldLogCacheControl && isCacheable(cacheControl)) {

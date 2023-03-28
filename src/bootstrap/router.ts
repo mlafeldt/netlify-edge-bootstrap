@@ -1,10 +1,27 @@
+import { EdgeFunction } from "./edge_function.ts";
 import { InvocationMetadata } from "./invocation_metadata.ts";
 import { StructuredLogger } from "./log/logger.ts";
 import type { Functions } from "./stage_2.ts";
 
+interface FunctionConfig {
+  excludedPatterns: RegExp[];
+  generator?: string;
+  onError: string;
+}
+
+interface FunctionWithConfig {
+  config: FunctionConfig;
+  source: EdgeFunction;
+}
+
 interface Route {
   function: string;
   pattern: RegExp;
+}
+
+interface RouteMatch {
+  function: EdgeFunction;
+  name: string;
 }
 
 export enum OnError {
@@ -13,9 +30,7 @@ export enum OnError {
 }
 
 export class Router {
-  private exclusionPatterns: Map<string, RegExp[]>;
-  private functions: Functions;
-  private onErrorSettings: Map<string, string>;
+  private functions: Map<string, FunctionWithConfig>;
   private routes: Route[];
 
   constructor(
@@ -23,81 +38,92 @@ export class Router {
     metadata: InvocationMetadata,
     logger: StructuredLogger,
   ) {
-    const exclusionPatterns = new Map<string, RegExp[]>();
-    const onErrorSettings = new Map<string, string>();
+    const rawConfig = metadata.function_config ?? {};
+    const functionsWithConfig = new Map();
 
-    const config = metadata.function_config ?? {};
-    const routes = metadata.routes ?? [];
+    // `rawConfig` is an unsanitized/type-unsafe payload that we receive in the
+    // request, so we need to shape it into an interface we can safely use in
+    // different places throughout the lifecycle of the request.
+    Object.entries(functions).forEach(([name, source]) => {
+      const config: FunctionConfig = {
+        excludedPatterns: [],
+        onError: OnError.Fail,
+      };
+      const {
+        excluded_patterns: excludedPatterns,
+        generator,
+        on_error: onError,
+      } = rawConfig[name] ?? {};
 
-    Object.entries(config).forEach(
-      ([functionName, functionConfig]) => {
-        const {
-          excluded_patterns: excludedPatterns,
-          on_error: onError,
-        } = functionConfig;
+      if (excludedPatterns) {
+        const expressions = excludedPatterns.map((pattern) =>
+          new RegExp(pattern)
+        );
 
-        if (excludedPatterns) {
-          const expressions = excludedPatterns.map((pattern) =>
-            new RegExp(pattern)
+        config.excludedPatterns.push(...expressions);
+      }
+
+      if (onError) {
+        if (
+          onError === OnError.Bypass ||
+          onError === OnError.Fail ||
+          (typeof onError === "string" && onError.startsWith("/"))
+        ) {
+          config.onError = onError;
+        } else {
+          logger.withFields({ onError }).log(
+            "Found unexpected value for 'on_error' property",
           );
-
-          exclusionPatterns.set(functionName, expressions);
         }
+      }
 
-        if (onError) {
-          if (
-            onError === OnError.Bypass ||
-            onError === OnError.Fail ||
-            (typeof onError === "string" && onError.startsWith("/"))
-          ) {
-            onErrorSettings.set(functionName, onError);
-          } else {
-            logger.withFields({ onError }).log(
-              "Found unexpected value for 'on_error' property",
-            );
-          }
-        }
-      },
-    );
+      if (generator) {
+        config.generator = generator;
+      }
 
-    this.exclusionPatterns = exclusionPatterns;
-    this.onErrorSettings = onErrorSettings;
-    this.functions = functions;
-    this.routes = routes.map((route) => ({
+      functionsWithConfig.set(name, { config, source });
+    });
+
+    this.functions = functionsWithConfig;
+    this.routes = (metadata.routes ?? []).map((route) => ({
       function: route.function,
       pattern: new RegExp(route.pattern),
     }));
   }
 
-  getOnError(functionName: string) {
-    return this.onErrorSettings.get(functionName) ?? OnError.Fail;
-  }
-
   getFunction(name: string) {
-    return this.functions[name];
+    return this.functions.get(name);
   }
 
   // Returns a list of functions that should run for a given URL path.
   match(url: URL) {
-    const routes = this.routes.filter((route) => {
+    const functions = this.routes.map((route) => {
       const isMatch = route.pattern.test(url.pathname);
 
       if (!isMatch) {
-        return false;
+        return;
       }
 
-      const exclusionPatterns = this.exclusionPatterns.get(route.function);
-      const isExcluded = (exclusionPatterns ?? []).some((expression) =>
+      const func = this.functions.get(route.function);
+
+      if (func === undefined) {
+        return;
+      }
+
+      const isExcluded = func.config.excludedPatterns.some((expression) =>
         expression.test(url.pathname)
       );
 
-      return !isExcluded;
-    });
-    const functions = routes.map((route) => ({
-      name: route.function,
-      function: this.functions[route.function],
-    }));
+      if (isExcluded) {
+        return;
+      }
 
-    return functions;
+      return {
+        function: func.source,
+        name: route.function,
+      };
+    });
+
+    return functions.filter(Boolean) as RouteMatch[];
   }
 }

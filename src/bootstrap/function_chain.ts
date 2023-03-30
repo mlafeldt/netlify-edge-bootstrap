@@ -38,6 +38,7 @@ interface FunctionChainOptions {
   cookies?: CookieStore;
   functionNames: string[];
   initialRequestURL?: URL;
+  invokedFunctions?: string[];
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
@@ -58,6 +59,7 @@ class FunctionChain {
   functionNames: string[];
   initialHeaders: Headers;
   initialRequestURL: URL;
+  invokedFunctions: string[];
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
@@ -68,6 +70,7 @@ class FunctionChain {
       cookies = new CookieStore(request),
       functionNames,
       initialRequestURL = new URL(request.url),
+      invokedFunctions = [],
       rawLogger,
       router,
     }: FunctionChainOptions,
@@ -79,6 +82,7 @@ class FunctionChain {
     this.functionNames = functionNames;
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
+    this.invokedFunctions = invokedFunctions;
     this.rawLogger = rawLogger;
     this.request = request;
     this.router = router;
@@ -376,6 +380,8 @@ class FunctionChain {
     const { config, name, source } = func;
     const context = this.getContext(functionIndex);
 
+    this.invokedFunctions.push(name);
+
     try {
       // Rather than calling the function directly, we call it through a special
       // identity function. The name of this function has a marker that allows us
@@ -440,6 +446,7 @@ class FunctionChain {
           cookies: this.cookies,
           functionNames: functions.map((route) => route.name),
           initialRequestURL: this.initialRequestURL,
+          invokedFunctions: this.invokedFunctions,
           rawLogger: this.rawLogger,
           request: newRequest,
           router: this.router,

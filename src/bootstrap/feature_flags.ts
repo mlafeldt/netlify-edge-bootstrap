@@ -4,6 +4,7 @@ export type FeatureFlags = Record<string, boolean>;
 
 export enum FeatureFlag {
   FailureModes = "edge_functions_bootstrap_failure_mode",
+  InvokedFunctionsHeader = "edge_functions_bootstrap_invoked_functions_header",
   LogCacheControl = "edge_functions_bootstrap_log_cache_control",
   RunFunctionsOnFetch = "edge_functions_bootstrap_run_functions_fetch",
   StripContentLength = "edge_functions_bootstrap_strip_content_length",

@@ -10,7 +10,7 @@ import {
   getPassthroughHeaders,
 } from "./request.ts";
 import { getEnvironment } from "./environment.ts";
-import { InternalHeaders, StandardHeaders } from "./headers.ts";
+import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
@@ -47,10 +47,15 @@ const handleRequest = async (
       );
     }
 
+    // A collector of all the functions invoked by this chain or any sub-chains
+    // that it triggers.
+    const invokedFunctions: string[] = [];
+
     const functionNames = functionNamesHeader.split(",");
     const edgeReq = new EdgeRequest(req);
     const chain = new FunctionChain({
       functionNames,
+      invokedFunctions,
       rawLogger,
       request: edgeReq,
       router,
@@ -69,7 +74,6 @@ const handleRequest = async (
     }
 
     const startTime = performance.now();
-
     const response = await chain.run();
 
     // Propagate headers received from passthrough calls to the final response.
@@ -104,6 +108,15 @@ const handleRequest = async (
           mode: getCacheMode(edgeReq),
         })
         .log("Edge function returned cacheable cache-control headers");
+    }
+
+    if (hasFlag(edgeReq, FeatureFlag.InvokedFunctionsHeader)) {
+      return mutateHeaders(response, (headers) => {
+        headers.set(
+          InternalHeaders.EdgeFunctions,
+          invokedFunctions.join(","),
+        );
+      });
     }
 
     return response;

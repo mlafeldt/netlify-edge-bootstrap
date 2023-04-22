@@ -9,7 +9,7 @@ import {
   getFeatureFlags,
   getPassthroughHeaders,
 } from "./request.ts";
-import { getEnvironment } from "./environment.ts";
+import { env, getEnvironment } from "./environment.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
@@ -21,7 +21,18 @@ interface HandleRequestOptions {
   rawLogger?: Logger;
 }
 
-const handleRequest = async (
+declare global {
+  // Using `var` so that the declaration is hoisted in such a way that we can
+  // reference it before it's initialized.
+  // deno-lint-ignore no-var
+  var Netlify: {
+    env: typeof env;
+  };
+}
+
+globalThis.Netlify = { env };
+
+export const handleRequest = async (
   req: Request,
   functions: Functions,
   { rawLogger = console.log }: HandleRequestOptions = {},
@@ -174,5 +185,3 @@ const handleRequest = async (
     }
   }
 };
-
-export { handleRequest };

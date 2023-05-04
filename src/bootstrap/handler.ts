@@ -9,7 +9,8 @@ import {
   getFeatureFlags,
   getPassthroughHeaders,
 } from "./request.ts";
-import { env, getEnvironment } from "./environment.ts";
+import { getEnvironment } from "./environment.ts";
+import { env } from "./globals.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
@@ -19,15 +20,6 @@ import { ErrorType, UserError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
   rawLogger?: Logger;
-}
-
-declare global {
-  // Using `var` so that the declaration is hoisted in such a way that we can
-  // reference it before it's initialized.
-  // deno-lint-ignore no-var
-  var Netlify: {
-    env: typeof env;
-  };
 }
 
 globalThis.Netlify = { env };

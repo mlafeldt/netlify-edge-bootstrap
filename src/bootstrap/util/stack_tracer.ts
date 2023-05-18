@@ -50,10 +50,17 @@ export class StackTracer extends Error {
           this.requestID = requestID;
         }
 
-        const functionName = this.getFunctionName(callSite.getFileName());
+        // We may have multiple function files in the stack, which happens if
+        // function 1 triggers function 2 with `context.next()`, for example.
+        // The name of the function that originates the log is always at the
+        // top of the stack, so we stop looking for a name if we've already
+        // seen one.
+        if (this.functionName === undefined) {
+          const functionName = this.getFunctionName(callSite.getFileName());
 
-        if (functionName) {
-          this.functionName = functionName;
+          if (functionName !== undefined) {
+            this.functionName = functionName;
+          }
         }
       });
     };

@@ -280,7 +280,7 @@ class FunctionChain {
     return new URL(urlPath);
   }
 
-  async rewrite(url: string | URL) {
+  rewrite(url: string | URL) {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
 
     if (newUrl.origin !== this.initialRequestURL.origin) {
@@ -289,16 +289,7 @@ class FunctionChain {
       );
     }
 
-    const start = performance.now();
-    const response = await this.fetchPassthrough(newUrl);
-    const end = performance.now();
-    const duration = end - start;
-
-    logger
-      .withFields({ duration: duration.toFixed(2) })
-      .log("context.rewrite measured");
-
-    return response;
+    return this.fetchPassthrough(newUrl);
   }
 
   async run(

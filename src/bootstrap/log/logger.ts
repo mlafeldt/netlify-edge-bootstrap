@@ -1,7 +1,7 @@
 import {
   logger,
   StructuredLogger,
-} from "https://v1-5-0--edge-utils.netlify.app/logger/mod.ts";
+} from "https://v1-6-0--edge-utils.netlify.app/logger/mod.ts";
 
 // An instance of `StructuredLogger` that uses an unpatched `console.log`. In
 // practice, this makes it detached from the context-tracking logic, and can

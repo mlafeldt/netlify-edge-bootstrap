@@ -7,10 +7,12 @@ declare global {
   };
 }
 
-export const env = {
+const env = {
   delete: Deno.env.delete,
   get: Deno.env.get,
   has: Deno.env.has,
   set: Deno.env.set,
   toObject: Deno.env.toObject,
 };
+
+export const Netlify = { env };

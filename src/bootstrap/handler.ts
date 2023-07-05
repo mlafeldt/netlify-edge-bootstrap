@@ -10,7 +10,7 @@ import {
   getPassthroughHeaders,
 } from "./request.ts";
 import { getEnvironment } from "./environment.ts";
-import { env } from "./globals.ts";
+import { Netlify } from "./globals.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
@@ -22,7 +22,7 @@ interface HandleRequestOptions {
   rawLogger?: Logger;
 }
 
-globalThis.Netlify = { env };
+globalThis.Netlify = Netlify;
 
 export const handleRequest = async (
   req: Request,

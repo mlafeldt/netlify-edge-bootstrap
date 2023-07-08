@@ -71,7 +71,7 @@ export const handleRequest = async (
         .withFields({
           feature_flags: Object.keys(getFeatureFlags(edgeReq)),
           function_names: functionNames,
-          mode: getCacheMode(edgeReq),
+          cache_mode: getCacheMode(edgeReq),
         })
         .log("Started edge function invocation");
     }

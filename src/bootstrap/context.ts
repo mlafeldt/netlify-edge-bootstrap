@@ -1,7 +1,21 @@
 import type { Account } from "./account.ts";
 import type { Cookies } from "./cookie.ts";
-import type { Geo } from "./geo.ts";
 import type { Site } from "./site.ts";
+
+export interface Geo {
+  city?: string;
+  country?: {
+    code?: string;
+    name?: string;
+  };
+  subdivision?: {
+    code?: string;
+    name?: string;
+  };
+  timezone?: string;
+  latitude?: number;
+  longitude?: number;
+}
 
 interface Context {
   cookies: Cookies;

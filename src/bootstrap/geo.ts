@@ -1,17 +1,5 @@
-export interface Geo {
-  city?: string;
-  country?: {
-    code?: string;
-    name?: string;
-  };
-  subdivision?: {
-    code?: string;
-    name?: string;
-  };
-  timezone?: string;
-  latitude?: number;
-  longitude?: number;
-}
+import * as base64 from "https://deno.land/std@0.170.0/encoding/base64.ts";
+import type { Geo } from "./context.ts";
 
 export function parseGeoHeader(geoHeader: string | null) {
   if (geoHeader === null) {
@@ -19,7 +7,12 @@ export function parseGeoHeader(geoHeader: string | null) {
   }
 
   try {
-    const geoData: Geo = JSON.parse(geoHeader);
+    const decoded = geoHeader.startsWith("{")
+      ? geoHeader
+      // we can't use atob() here because it doesn't support unicode
+      : new TextDecoder().decode(base64.decode(geoHeader));
+
+    const geoData: Geo = JSON.parse(decoded);
 
     return geoData;
   } catch {

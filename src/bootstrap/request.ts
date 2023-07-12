@@ -1,6 +1,6 @@
 import { Account, parseAccountHeader } from "./account.ts";
 import { getEnvironment } from "./environment.ts";
-import { Geo, parseGeoHeader } from "./geo.ts";
+import { parseGeoHeader } from "./geo.ts";
 import {
   conditionals as conditionalHeaders,
   InternalHeaders,
@@ -8,6 +8,7 @@ import {
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { parseSiteHeader, Site } from "./site.ts";
 import { OriginResponse } from "./response.ts";
+import { Geo } from "./context.ts";
 
 export const internalsSymbol = Symbol("Netlify Internals");
 

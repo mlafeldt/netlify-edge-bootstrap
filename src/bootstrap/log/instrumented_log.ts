@@ -1,4 +1,3 @@
-import "./types.ts";
 import { getEnvironment } from "../environment.ts";
 import { Metadata } from "../stage_2.ts";
 import { StructuredLogger } from "./logger.ts";
@@ -83,7 +82,7 @@ export type Logger = (...data: unknown[]) => void;
 export const patchLogger = (logger: Logger, metadata?: Metadata) => {
   return (...data: unknown[]) => {
     try {
-      const { functionName, requestID } = getExecutionContext(metadata);
+      const { functionName, requestID } = getExecutionContext();
 
       return instrumentedLog(logger, data, functionName, requestID);
     } catch {

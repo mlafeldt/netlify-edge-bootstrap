@@ -30,9 +30,8 @@ import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { OnError, Router } from "./router.ts";
 import { UnretriableError, UserError } from "./util/errors.ts";
-import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { isRedirect } from "./util/redirect.ts";
-import { StackTracer } from "./util/stack_tracer.ts";
+import { callWithExecutionContext } from "./util/execution_context.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -378,10 +377,12 @@ class FunctionChain {
       // identity function. The name of this function has a marker that allows us
       // to decode the request ID from any `console.log` calls by inspecting the
       // stack trace.
-      const result = await callWithNamedWrapper(
-        // Type-asserting to `unknown` because user code can return anything.
+      const result = await callWithExecutionContext(
+        {
+          functionName: name,
+          requestID: getRequestID(this.request),
+        },
         () => source(this.request, context) as unknown,
-        StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
       // If the function returned a URL object, it means a rewrite.

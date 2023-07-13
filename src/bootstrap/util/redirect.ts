@@ -36,7 +36,7 @@ export const patchResponseRedirect = (
     // request.
     if (typeof url === "string" && url.startsWith("/")) {
       try {
-        const { chain } = getExecutionContext(metadata);
+        const { chain } = getExecutionContext();
 
         if (chain === undefined) {
           throw new Error("Could not find chain");

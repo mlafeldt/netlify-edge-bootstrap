@@ -1,8 +1,6 @@
-import type { Account } from "./account.ts";
 import type { Cookies } from "./cookie.ts";
-import type { Site } from "./site.ts";
 
-export interface Geo {
+interface Geo {
   city?: string;
   country?: {
     code?: string;
@@ -15,6 +13,16 @@ export interface Geo {
   timezone?: string;
   latitude?: number;
   longitude?: number;
+}
+
+interface Account {
+  id?: string;
+}
+
+interface Site {
+  id?: string;
+  name?: string;
+  url?: string;
 }
 
 interface Context {
@@ -58,4 +66,4 @@ interface ServerMetadata {
   region: string;
 }
 
-export type { Context, NextOptions };
+export type { Account, Context, Geo, NextOptions, Site };

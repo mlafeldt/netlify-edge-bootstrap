@@ -1,6 +1,5 @@
-export interface Account {
-  id?: string;
-}
+import * as base64 from "https://deno.land/std@0.170.0/encoding/base64.ts";
+import type { Account } from "./context.ts";
 
 export function parseAccountHeader(accountHeader: string | null): Account {
   if (!accountHeader) {
@@ -8,7 +7,9 @@ export function parseAccountHeader(accountHeader: string | null): Account {
   }
 
   try {
-    const accountData: Account = JSON.parse(atob(accountHeader));
+    const accountData: Account = JSON.parse(
+      new TextDecoder().decode(base64.decode(accountHeader)),
+    );
 
     return accountData;
   } catch {

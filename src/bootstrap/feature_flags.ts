@@ -6,6 +6,7 @@ export enum FeatureFlag {
   FailureModes = "edge_functions_bootstrap_failure_mode",
   InvokedFunctionsHeader = "edge_functions_bootstrap_invoked_functions_header",
   LogCacheControl = "edge_functions_bootstrap_log_cache_control",
+  Netliblob = "edge_functions_bootstrap_netliblob",
   RunFunctionsOnFetch = "edge_functions_bootstrap_run_functions_fetch",
   StripContentLength = "edge_functions_bootstrap_strip_content_length",
   WarnContextNext = "edge_functions_bootstrap_warn_context_next",

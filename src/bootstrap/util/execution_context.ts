@@ -1,13 +1,18 @@
+import { FunctionChain } from "../function_chain.ts";
 import { requestStore } from "../request_store.ts";
-import { AsyncLocalStorage } from "node:async_hooks";
+import { Metadata } from "../stage_2.ts";
+import { StackTracer } from "./stack_tracer.ts";
 
-const executionStore = new AsyncLocalStorage<{
-  requestID: string;
-  functionName: string;
-}>();
+interface ExecutionContext {
+  chain?: FunctionChain;
+  functionName?: string;
+  requestID?: string;
+}
 
-export const getExecutionContext = () => {
-  const { functionName, requestID } = executionStore.getStore() || {};
+export const getExecutionContext = (metadata?: Metadata): ExecutionContext => {
+  const { functionName, requestID } = new StackTracer({
+    functions: metadata?.functions,
+  });
   const chain = requestID ? requestStore.get(requestID) : undefined;
 
   return {
@@ -16,5 +21,3 @@ export const getExecutionContext = () => {
     requestID,
   };
 };
-
-export const callWithExecutionContext = executionStore.run.bind(executionStore);

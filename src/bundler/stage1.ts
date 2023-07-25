@@ -20,10 +20,6 @@ const stage1Loader =
       return { kind: "external", specifier };
     }
 
-    if (specifier.startsWith("node:")) {
-      return { kind: "external", specifier };
-    }
-
     if (specifier.startsWith(virtualRoot)) {
       return loadFromVirtualRoot(specifier, virtualRoot, basePath);
     }

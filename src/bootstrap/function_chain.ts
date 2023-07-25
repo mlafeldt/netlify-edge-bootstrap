@@ -18,6 +18,7 @@ import {
   CacheMode,
   EdgeRequest,
   getAccount,
+  getBlobs,
   getCacheMode,
   getGeoLocation,
   getIP,
@@ -30,8 +31,9 @@ import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { OnError, Router } from "./router.ts";
 import { UnretriableError, UserError } from "./util/errors.ts";
+import { callWithNamedWrapper } from "./util/named_wrapper.ts";
 import { isRedirect } from "./util/redirect.ts";
-import { callWithExecutionContext } from "./util/execution_context.ts";
+import { StackTracer } from "./util/stack_tracer.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -223,6 +225,12 @@ class FunctionChain {
       },
     };
 
+    if (hasFlag(this.request, FeatureFlag.Netliblob)) {
+      // @ts-expect-error We're not adding this to the public types until we're
+      // ready to commit to launching this feature.
+      context.blobs = getBlobs(this.request);
+    }
+
     return context;
   }
 
@@ -377,12 +385,10 @@ class FunctionChain {
       // identity function. The name of this function has a marker that allows us
       // to decode the request ID from any `console.log` calls by inspecting the
       // stack trace.
-      const result = await callWithExecutionContext(
-        {
-          functionName: name,
-          requestID: getRequestID(this.request),
-        },
+      const result = await callWithNamedWrapper(
+        // Type-asserting to `unknown` because user code can return anything.
         () => source(this.request, context) as unknown,
+        StackTracer.serializeRequestID(getRequestID(this.request)),
       );
 
       // If the function returned a URL object, it means a rewrite.

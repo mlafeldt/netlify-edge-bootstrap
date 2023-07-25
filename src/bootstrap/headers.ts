@@ -1,4 +1,5 @@
 export enum InternalHeaders {
+  BlobsInfo = "x-nf-blobs-info",
   Country = "x-country",
   Geo = "x-nf-geo",
   SiteInfo = "x-nf-site-info",

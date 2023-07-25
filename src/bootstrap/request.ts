@@ -1,4 +1,5 @@
 import { parseAccountHeader } from "./account.ts";
+import { Blobs, initializeBlobs, parseBlobsHeader } from "./blobs.ts";
 import { getEnvironment } from "./environment.ts";
 import { parseGeoHeader } from "./geo.ts";
 import {
@@ -19,6 +20,7 @@ export const enum CacheMode {
 
 interface EdgeRequestInternals {
   account: Account;
+  blobs: Blobs;
   bypassSettings: string | null;
   cacheMode: string | null;
   featureFlags: FeatureFlags;
@@ -33,6 +35,31 @@ interface EdgeRequestInternals {
   site: Site;
 }
 
+const makeInternals = (headers: Headers): EdgeRequestInternals => {
+  const site = parseSiteHeader(headers.get(InternalHeaders.SiteInfo));
+  const blobsContext = parseBlobsHeader(headers.get(InternalHeaders.BlobsInfo));
+
+  return {
+    account: parseAccountHeader(
+      headers.get(InternalHeaders.AccountInfo),
+    ),
+    blobs: initializeBlobs(blobsContext, site.id),
+    bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
+    cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
+    featureFlags: parseFeatureFlagsHeader(
+      headers.get(InternalHeaders.FeatureFlags),
+    ),
+    forwardedHost: headers.get(InternalHeaders.ForwardedHost),
+    forwardedProtocol: headers.get(InternalHeaders.ForwardedProtocol),
+    geo: parseGeoHeader(headers.get(InternalHeaders.Geo)),
+    ip: headers.get(InternalHeaders.IP) ?? "",
+    passthrough: headers.get(InternalHeaders.Passthrough),
+    passthroughHost: headers.get(InternalHeaders.PassthroughHost),
+    requestID: headers.get(InternalHeaders.RequestID),
+    site,
+  };
+};
+
 export class EdgeRequest extends Request {
   [internalsSymbol]: EdgeRequestInternals;
 
@@ -41,24 +68,9 @@ export class EdgeRequest extends Request {
 
     super(base);
 
-    const internals = init instanceof EdgeRequest ? init[internalsSymbol] : {
-      account: parseAccountHeader(
-        this.headers.get(InternalHeaders.AccountInfo),
-      ),
-      bypassSettings: this.headers.get(InternalHeaders.EdgeFunctionBypass),
-      cacheMode: this.headers.get(InternalHeaders.EdgeFunctionCache),
-      featureFlags: parseFeatureFlagsHeader(
-        this.headers.get(InternalHeaders.FeatureFlags),
-      ),
-      forwardedHost: this.headers.get(InternalHeaders.ForwardedHost),
-      forwardedProtocol: this.headers.get(InternalHeaders.ForwardedProtocol),
-      geo: parseGeoHeader(this.headers.get(InternalHeaders.Geo)),
-      ip: this.headers.get(InternalHeaders.IP) ?? "",
-      passthrough: this.headers.get(InternalHeaders.Passthrough),
-      passthroughHost: this.headers.get(InternalHeaders.PassthroughHost),
-      requestID: this.headers.get(InternalHeaders.RequestID),
-      site: parseSiteHeader(this.headers.get(InternalHeaders.SiteInfo)),
-    };
+    const internals = init instanceof EdgeRequest
+      ? init[internalsSymbol]
+      : makeInternals(this.headers);
 
     this[internalsSymbol] = internals;
 
@@ -85,6 +97,9 @@ export class EdgeRequest extends Request {
 
 export const getAccount = (request: EdgeRequest) =>
   request[internalsSymbol].account;
+
+export const getBlobs = (request: EdgeRequest) =>
+  request[internalsSymbol].blobs;
 
 export const getCacheMode = (request: EdgeRequest) =>
   request[internalsSymbol].cacheMode === CacheMode.Manual

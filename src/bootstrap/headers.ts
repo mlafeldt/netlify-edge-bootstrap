@@ -34,6 +34,7 @@ export enum StandardHeaders {
   CacheControl = "cache-control",
   ContentLength = "content-length",
   ContentType = "content-type",
+  Via = "via",
 }
 
 export const conditionals = [

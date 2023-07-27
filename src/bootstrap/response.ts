@@ -1,4 +1,4 @@
-import { InternalHeaders } from "./headers.ts";
+import { InternalHeaders, StandardHeaders } from "./headers.ts";
 import { internalsSymbol } from "./request.ts";
 
 // see https://github.com/netlify/stargate/blob/61c644240fbd601378cb093ee9e6334fdb542406/proxy/headers.go
@@ -31,6 +31,11 @@ class OriginResponse extends Response {
         this.headers.delete(key);
       }
     });
+
+    // Stripping the `Via` header from passthrough responses to prevent this
+    // response from hitting the same edge node that served the passthrough,
+    // causing ATS to detect a loop.
+    this.headers.delete(StandardHeaders.Via);
   }
 }
 

@@ -1,5 +1,6 @@
 import { parseAccountHeader } from "./account.ts";
 import { Blobs, initializeBlobs, parseBlobsHeader } from "./blobs.ts";
+import { Account, Deploy, Geo, Site } from "./context.ts";
 import { getEnvironment } from "./environment.ts";
 import { parseGeoHeader } from "./geo.ts";
 import {
@@ -9,7 +10,6 @@ import {
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { parseSiteHeader } from "./site.ts";
 import { OriginResponse } from "./response.ts";
-import { Account, Geo, Site } from "./context.ts";
 
 export const internalsSymbol = Symbol("Netlify Internals");
 
@@ -23,6 +23,7 @@ interface EdgeRequestInternals {
   blobs: Blobs;
   bypassSettings: string | null;
   cacheMode: string | null;
+  deploy: Deploy;
   featureFlags: FeatureFlags;
   forwardedHost: string | null;
   forwardedProtocol: string | null;
@@ -38,6 +39,9 @@ interface EdgeRequestInternals {
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
   const site = parseSiteHeader(headers.get(InternalHeaders.SiteInfo));
   const blobsContext = parseBlobsHeader(headers.get(InternalHeaders.BlobsInfo));
+  const deploy = {
+    id: headers.get(InternalHeaders.DeployID) ?? undefined,
+  };
 
   return {
     account: parseAccountHeader(
@@ -46,6 +50,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     blobs: initializeBlobs(blobsContext, site.id),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
+    deploy,
     featureFlags: parseFeatureFlagsHeader(
       headers.get(InternalHeaders.FeatureFlags),
     ),
@@ -105,6 +110,9 @@ export const getCacheMode = (request: EdgeRequest) =>
   request[internalsSymbol].cacheMode === CacheMode.Manual
     ? CacheMode.Manual
     : CacheMode.Off;
+
+export const getDeploy = (request: EdgeRequest) =>
+  request[internalsSymbol].deploy;
 
 export const getGeoLocation = (request: EdgeRequest) =>
   request[internalsSymbol].geo;

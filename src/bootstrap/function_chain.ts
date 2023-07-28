@@ -20,6 +20,7 @@ import {
   getAccount,
   getBlobs,
   getCacheMode,
+  getDeploy,
   getGeoLocation,
   getIP,
   getRequestID,
@@ -202,6 +203,7 @@ class FunctionChain {
   getContext(functionIndex: number) {
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
+      deploy: getDeploy(this.request),
       geo: getGeoLocation(this.request),
       ip: getIP(this.request),
       json: this.json.bind(this),

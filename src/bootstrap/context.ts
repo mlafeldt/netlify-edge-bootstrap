@@ -1,6 +1,6 @@
 import type { Cookies } from "./cookie.ts";
 
-interface Geo {
+export interface Geo {
   city?: string;
   country?: {
     code?: string;
@@ -15,17 +15,21 @@ interface Geo {
   longitude?: number;
 }
 
-interface Account {
+export interface Account {
   id?: string;
 }
 
-interface Site {
+export interface Site {
   id?: string;
   name?: string;
   url?: string;
 }
 
-interface Context {
+export interface Deploy {
+  id?: string;
+}
+
+export interface Context {
   cookies: Cookies;
   geo: Geo;
   ip: string;
@@ -56,14 +60,13 @@ interface Context {
   site: Site;
   account: Account;
   server: ServerMetadata;
+  deploy: Deploy;
 }
 
-interface NextOptions {
+export interface NextOptions {
   sendConditionalRequest?: boolean;
 }
 
 interface ServerMetadata {
   region: string;
 }
-
-export type { Account, Context, Geo, NextOptions, Site };

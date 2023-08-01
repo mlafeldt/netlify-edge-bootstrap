@@ -56,7 +56,12 @@ export interface DeleteCookieOptions {
 }
 
 export interface Cookies {
-  delete: (input: string | DeleteCookieOptions) => void;
-  get: (name: string) => string;
-  set: (input: Cookie) => void;
+  delete(name: string): void;
+  delete(options: DeleteCookieOptions): void;
+
+  get(name: string): string;
+  get(cookie: Pick<Cookie, "name">): string;
+
+  set(name: string, value: string): void;
+  set(input: Cookie): void;
 }

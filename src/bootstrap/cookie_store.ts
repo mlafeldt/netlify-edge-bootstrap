@@ -16,7 +16,7 @@ interface SetCookieOp {
   type: "set";
 }
 
-class CookieStore {
+class CookieStore implements Cookies {
   ops: (DeleteCookieOp | SetCookieOp)[];
   request: Request;
 
@@ -46,6 +46,8 @@ class CookieStore {
     return headers;
   }
 
+  delete(name: string): void;
+  delete(options: DeleteCookieOptions): void;
   delete(input: string | DeleteCookieOptions) {
     const defaultOptions = {
       path: "/",
@@ -58,7 +60,11 @@ class CookieStore {
     });
   }
 
-  get(name: string) {
+  get(cookie: Pick<Cookie, "name">): string;
+  get(name: string): string;
+  get(input: Pick<Cookie, "name"> | string): string {
+    const name = typeof input === "string" ? input : input.name;
+
     return getCookies(this.request.headers)[name];
   }
 
@@ -70,7 +76,23 @@ class CookieStore {
     };
   }
 
-  set(cookie: Cookie) {
+  set(cookie: Cookie): void;
+  set(name: string, value: string): void;
+  set(input: Cookie | string, value?: string): void {
+    let cookie: Cookie;
+
+    if (typeof input === "string") {
+      if (typeof value !== "string") {
+        throw new Error(
+          `You must provide the cookie value as a string to 'cookies.set'`,
+        );
+      }
+
+      cookie = { name: input, value };
+    } else {
+      cookie = input;
+    }
+
     this.validate(cookie);
     this.ops.push({ cookie, type: "set" });
   }

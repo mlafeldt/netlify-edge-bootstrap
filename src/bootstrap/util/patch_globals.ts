@@ -40,9 +40,9 @@ export const patchGlobals = (metadata?: Metadata) => {
   globalThis.console.trace = patchLogger(globalThis.console.trace, metadata);
 
   patchTimeLogging(
-    (label) => globalThis.console.time(label),
-    (label, ...data) => globalThis.console.timeLog(label, ...data),
-    (label) => globalThis.console.timeEnd(label),
+    globalThis.console.time,
+    globalThis.console.timeLog,
+    globalThis.console.timeEnd,
     metadata,
   );
 

@@ -1,7 +1,6 @@
 import { parseAccountHeader } from "./account.ts";
 import { Blobs, initializeBlobs, parseBlobsHeader } from "./blobs.ts";
 import { Account, Deploy, Geo, Site } from "./context.ts";
-import { getEnvironment } from "./environment.ts";
 import { parseGeoHeader } from "./geo.ts";
 import {
   conditionals as conditionalHeaders,
@@ -31,6 +30,7 @@ interface EdgeRequestInternals {
   ip: string;
   passthrough: string | null;
   passthroughHost: string | null;
+  passthroughProtocol: string | null;
   passthroughHeaders?: Headers;
   requestID: string | null;
   site: Site;
@@ -60,6 +60,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     ip: headers.get(InternalHeaders.IP) ?? "",
     passthrough: headers.get(InternalHeaders.Passthrough),
     passthroughHost: headers.get(InternalHeaders.PassthroughHost),
+    passthroughProtocol: headers.get(InternalHeaders.PassthroughProtocol),
     requestID: headers.get(InternalHeaders.RequestID),
     site,
   };
@@ -91,6 +92,7 @@ export class EdgeRequest extends Request {
       InternalHeaders.Passthrough,
       InternalHeaders.LegacyPassthrough,
       InternalHeaders.PassthroughHost,
+      InternalHeaders.PassthroughProtocol,
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
       InternalHeaders.SiteInfo,
@@ -160,20 +162,11 @@ export class PassthroughRequest extends Request {
   }: PassthroughRequestOptions) {
     const passthroughHeader = req[internalsSymbol].passthrough;
     const requestIDHeader = req[internalsSymbol].requestID;
-    const environment = getEnvironment();
 
-    // When running locally, we allow the client to specify the host and the
-    // protocol used for origin requests.
-    if (environment === "local") {
-      url.host = req[internalsSymbol].forwardedHost ?? url.host;
-      url.protocol = req[internalsSymbol].forwardedProtocol
-        ? `${req[internalsSymbol].forwardedProtocol}:`
-        : url.protocol;
-    }
-
-    // The edge node can pass this header to tell the isolate which host it
+    // The edge node can pass these headers to tell the isolate which host it
     // should use for the origin call.
     url.host = req[internalsSymbol].passthroughHost ?? url.host;
+    url.protocol = req[internalsSymbol].passthroughProtocol ?? url.protocol;
 
     let reqInit: Request = req;
     if (req.body && req.bodyUsed) {

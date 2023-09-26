@@ -19,6 +19,7 @@ import type { Functions } from "./stage_2.ts";
 import { ErrorType, UserError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
+  fetchRewrites?: Map<string, string>;
   rawLogger?: Logger;
 }
 
@@ -27,7 +28,7 @@ globalThis.Netlify = Netlify;
 export const handleRequest = async (
   req: Request,
   functions: Functions,
-  { rawLogger = console.log }: HandleRequestOptions = {},
+  { fetchRewrites, rawLogger = console.log }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
@@ -54,8 +55,44 @@ export const handleRequest = async (
     // that it triggers.
     const invokedFunctions: string[] = [];
 
+    let edgeReqBase = req;
+
+    if (getEnvironment() === "local") {
+      const url = new URL(req.url);
+
+      // We need to change the URL we expose to user code to ensure it reflects
+      // the URL of the main CLI server and not the one from the internal Deno
+      // server.
+      url.protocol = req.headers.get(InternalHeaders.ForwardedProtocol) ??
+        url.protocol;
+      url.host = req.headers.get(InternalHeaders.ForwardedHost) ?? url.host;
+
+      edgeReqBase = new Request(url, req);
+
+      // We also need to intercept any requests made to the same URL as the
+      // incoming request, because we can only communicate with our "origin"
+      // over HTTP (not HTTPS). If this applies, we've already patched the
+      // global `fetch` upstream so that it looks at the `fetchRewrites` map
+      // to determine whether it should rewrite the origin, so all we need to
+      // do at this point is write to it.
+      if (
+        req.headers.has(InternalHeaders.PassthroughHost) &&
+        req.headers.has(InternalHeaders.PassthroughProtocol)
+      ) {
+        const passthroughOrigin = `${
+          req.headers.get(InternalHeaders.PassthroughProtocol)
+        }//${req.headers.get(InternalHeaders.PassthroughHost)}`;
+
+        // No need to add a rewrite if the request origin is already the same
+        // as the passthrough origin.
+        if (passthroughOrigin !== url.origin) {
+          fetchRewrites?.set(url.origin, passthroughOrigin);
+        }
+      }
+    }
+
     const functionNames = functionNamesHeader.split(",");
-    const edgeReq = new EdgeRequest(req);
+    const edgeReq = new EdgeRequest(edgeReqBase);
     const chain = new FunctionChain({
       functionNames,
       invokedFunctions,
@@ -99,10 +136,7 @@ export const handleRequest = async (
     }
 
     const cacheControl = response.headers.get(StandardHeaders.CacheControl);
-    const shouldLogCacheControl = hasFlag(
-      edgeReq,
-      FeatureFlag.LogCacheControl,
-    );
+    const shouldLogCacheControl = hasFlag(edgeReq, FeatureFlag.LogCacheControl);
 
     if (shouldLogCacheControl && isCacheable(cacheControl)) {
       logger
@@ -115,10 +149,7 @@ export const handleRequest = async (
 
     if (hasFlag(edgeReq, FeatureFlag.InvokedFunctionsHeader)) {
       return mutateHeaders(response, (headers) => {
-        headers.set(
-          InternalHeaders.EdgeFunctions,
-          invokedFunctions.join(","),
-        );
+        headers.set(InternalHeaders.EdgeFunctions, invokedFunctions.join(","));
       });
     }
 

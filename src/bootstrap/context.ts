@@ -61,6 +61,7 @@ export interface Context {
   account: Account;
   server: ServerMetadata;
   deploy: Deploy;
+  params: Record<string, string>;
 }
 
 export interface NextOptions {

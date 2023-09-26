@@ -1,7 +1,7 @@
 import "./types.ts";
 import { getEnvironment } from "../environment.ts";
 import { Metadata } from "../stage_2.ts";
-import { StructuredLogger } from "./logger.ts";
+import type { StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
 import { requestStore } from "../request_store.ts";
 import { getExecutionContext } from "../util/execution_context.ts";
@@ -14,6 +14,10 @@ export interface NetlifyMetadata {
   type?: LogType;
   url?: string;
 }
+
+const isStructuredLogger = (logger: any): logger is StructuredLogger => {
+  return Boolean(logger?.__netlifyStructuredLogger);
+};
 
 export const instrumentedLog = (
   logger: Logger,
@@ -29,7 +33,7 @@ export const instrumentedLog = (
       requestID: requestID,
     };
 
-    if (data[0] instanceof StructuredLogger) {
+    if (isStructuredLogger(data[0])) {
       const { fields, message, requestID } = data[0].serialize();
 
       if (requestID) {
@@ -59,7 +63,7 @@ export const instrumentedLog = (
 
   // If this is a system log and we're not in the production environment,
   // we only want to print it when debug logging is enabled.
-  if (data[0] instanceof StructuredLogger) {
+  if (isStructuredLogger(data[0])) {
     const structuredLogger = data[0].serialize();
     const chain = requestStore.get(
       structuredLogger.requestID ?? requestID ?? "",

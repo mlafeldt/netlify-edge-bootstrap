@@ -10,6 +10,7 @@ export enum FeatureFlag {
   RunFunctionsOnFetch = "edge_functions_bootstrap_run_functions_fetch",
   StripContentLength = "edge_functions_bootstrap_strip_content_length",
   WarnContextNext = "edge_functions_bootstrap_warn_context_next",
+  PathParams = "edge_functions_bootstrap_parse_path_params",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

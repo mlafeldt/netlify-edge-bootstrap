@@ -5,7 +5,13 @@ export interface FunctionConfig {
 }
 export interface InvocationMetadata {
   function_config?: Record<string, FunctionConfig>;
-  routes?: { function: string; pattern: string }[] | null;
+  req_routes?: number[];
+  routes?: {
+    function: string;
+    path?: string;
+    pattern: string;
+    methods?: string[];
+  }[] | null;
 }
 
 // Parses the header with invocation metadata sent by our edge nodes. It holds

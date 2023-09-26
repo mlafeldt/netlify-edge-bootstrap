@@ -14,6 +14,7 @@ import {
   mutateHeaders,
   StandardHeaders,
 } from "./headers.ts";
+import { getPathParameters } from "./path_parameters.ts";
 import {
   CacheMode,
   EdgeRequest,
@@ -201,6 +202,8 @@ class FunctionChain {
   }
 
   getContext(functionIndex: number) {
+    const route = this.router.getRequestRoute(functionIndex);
+    const url = this.request.url;
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
       deploy: getDeploy(this.request),
@@ -217,6 +220,9 @@ class FunctionChain {
         }
 
         return this.contextNext(functionIndex, undefined, reqOrOptions);
+      },
+      get params() {
+        return getPathParameters(route?.path, url);
       },
       requestId: getRequestID(this.request),
       rewrite: this.rewrite.bind(this),
@@ -423,7 +429,7 @@ class FunctionChain {
         const newRequest = new EdgeRequest(result, this.request);
 
         // Run any functions configured for the new path.
-        const functions = this.router.match(result);
+        const functions = this.router.match(result, newRequest.method);
 
         // If there are no functions configured for the new path, we can run
         // the rewrite. This means making a passthrough call if the caller

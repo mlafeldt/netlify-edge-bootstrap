@@ -8,9 +8,9 @@ import { getEnvironment } from "./environment.ts";
 import { handleRequest } from "./handler.ts";
 import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
-import { Functions, Metadata } from "./stage_2.ts";
+import { Functions } from "./stage_2.ts";
 
-export const serve = (functions: Functions, metadata?: Metadata) => {
+export const serve = (functions: Functions) => {
   const consoleLog = globalThis.console.log;
   const fetchRewrites = new Map<string, string>();
 
@@ -24,7 +24,7 @@ export const serve = (functions: Functions, metadata?: Metadata) => {
     );
   }
 
-  patchGlobals(metadata);
+  patchGlobals();
 
   const serveOptions: ServeInit = {
     // Adding a no-op listener to avoid the default one, which prints a message

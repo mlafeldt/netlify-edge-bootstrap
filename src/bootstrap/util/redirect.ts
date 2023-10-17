@@ -1,7 +1,6 @@
 import { Status } from "https://deno.land/std@0.170.0/http/http_status.ts";
 
 import { detachedLogger } from "../log/logger.ts";
-import { Metadata } from "../stage_2.ts";
 import { getExecutionContext } from "./execution_context.ts";
 
 // https://github.com/denoland/deno/blob/7ba0d849aa8362091574232484563482f9b6bfe7/ext/fetch/23_response.js#L81-L88
@@ -27,7 +26,6 @@ export const isRedirect = (res: Response) => {
 // Patch `Response.redirect` so that it accepts a relative path.
 export const patchResponseRedirect = (
   rawRedirect: typeof Response.redirect,
-  metadata?: Metadata,
 ) => {
   return (...args: Parameters<typeof Response.redirect>) => {
     const [url, status] = args;
@@ -36,7 +34,7 @@ export const patchResponseRedirect = (
     // request.
     if (typeof url === "string" && url.startsWith("/")) {
       try {
-        const { chain } = getExecutionContext(metadata);
+        const { chain } = getExecutionContext();
 
         if (chain === undefined) {
           throw new Error("Could not find chain");

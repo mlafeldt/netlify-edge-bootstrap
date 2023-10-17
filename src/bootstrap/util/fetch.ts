@@ -1,18 +1,21 @@
 import { FeatureFlag, hasFlag } from "../feature_flags.ts";
-import { EdgeRequest } from "../request.ts";
+import { EdgeRequest, PassthroughRequest } from "../request.ts";
 import { FunctionChain } from "../function_chain.ts";
-import { Metadata } from "../stage_2.ts";
 import { getExecutionContext } from "./execution_context.ts";
 
 // Returns a patched version of `fetch` that hijacks requests for the same
 // URL origin and runs any edge functions associated with the new path.
 export const patchFetchToRunFunctions = (
   rawFetch: typeof globalThis.fetch,
-  metadata?: Metadata,
 ) => {
   return (...args: Parameters<typeof globalThis.fetch>) => {
+    // prevents infinite loop
+    if (args[0] instanceof PassthroughRequest) {
+      return rawFetch(...args);
+    }
+
     try {
-      const { chain } = getExecutionContext(metadata);
+      const { chain } = getExecutionContext();
 
       if (chain === undefined) {
         throw new Error("Could not find chain");

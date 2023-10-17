@@ -6,4 +6,4 @@ import * as stage2 from "netlify:bootstrap-stage2";
 // the server. However, the entry file of an ESZIP bundle can't use relative
 // imports, so we code-gen an entry file in `src/bundler/stage1.ts` that then
 // imports this file and calls `boot`.
-export const boot = () => serve(stage2.functions, stage2.metadata);
+export const boot = () => serve(stage2.functions);

@@ -1,3 +1,4 @@
+import { setBlobsContext } from "./blobs.ts";
 import {
   BypassResponse,
   supportsPassthroughBypass,
@@ -232,12 +233,6 @@ class FunctionChain {
       },
     };
 
-    if (hasFlag(this.request, FeatureFlag.Netliblob)) {
-      // @ts-expect-error We're not adding this to the public types until we're
-      // ready to commit to launching this feature.
-      context.blobs = getBlobs(this.request);
-    }
-
     return context;
   }
 
@@ -312,6 +307,12 @@ class FunctionChain {
       requireFinalResponse?: boolean;
     } = {},
   ) {
+    const blobsMetadata = getBlobs(this.request);
+    const deploy = getDeploy(this.request);
+    const site = getSite(this.request);
+
+    setBlobsContext(blobsMetadata, deploy, site);
+
     let response = await this.runFunction({
       functionIndex: 0,
       previousRewrites,

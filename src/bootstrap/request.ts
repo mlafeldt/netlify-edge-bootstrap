@@ -1,5 +1,5 @@
 import { parseAccountHeader } from "./account.ts";
-import { Blobs, initializeBlobs, parseBlobsHeader } from "./blobs.ts";
+import { BlobsMetadata, parseBlobsMetadata } from "./blobs.ts";
 import { Account, Deploy, Geo, Site } from "./context.ts";
 import { parseGeoHeader } from "./geo.ts";
 import {
@@ -19,7 +19,7 @@ export const enum CacheMode {
 
 interface EdgeRequestInternals {
   account: Account;
-  blobs: Blobs;
+  blobs: BlobsMetadata;
   bypassSettings: string | null;
   cacheMode: string | null;
   deploy: Deploy;
@@ -38,7 +38,6 @@ interface EdgeRequestInternals {
 
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
   const site = parseSiteHeader(headers.get(InternalHeaders.SiteInfo));
-  const blobsContext = parseBlobsHeader(headers.get(InternalHeaders.BlobsInfo));
   const deploy = {
     id: headers.get(InternalHeaders.DeployID) ?? undefined,
   };
@@ -47,7 +46,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     account: parseAccountHeader(
       headers.get(InternalHeaders.AccountInfo),
     ),
-    blobs: initializeBlobs(blobsContext, site.id),
+    blobs: parseBlobsMetadata(headers.get(InternalHeaders.BlobsInfo)),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
     deploy,

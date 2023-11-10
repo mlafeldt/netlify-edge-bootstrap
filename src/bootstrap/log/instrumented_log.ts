@@ -52,6 +52,15 @@ export const instrumentedLog = (
       const chain = requestStore.get(metadata.requestID);
       if (chain) {
         const url = new URL(chain.request.url);
+
+        // Deno log lines are cut off after 2048 characters.
+        // We don't want the metadata to take up too much of that,
+        // so we truncate query parameters if they're taking up too much space.
+        // they're ignored in Ingesteer anyways.
+        if (url.search.length > 256) {
+          url.search = "?query-params-truncated";
+        }
+
         metadata.url = url.toString();
       }
     }

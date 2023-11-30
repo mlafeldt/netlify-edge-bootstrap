@@ -9,7 +9,7 @@ import {
   getFeatureFlags,
   getPassthroughHeaders,
 } from "./request.ts";
-import { getEnvironment } from "./environment.ts";
+import { getEnvironment, populateEnvironment } from "./environment.ts";
 import { Netlify } from "./globals.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
@@ -100,6 +100,10 @@ export const handleRequest = async (
       request: edgeReq,
       router,
     });
+
+    if (hasFlag(edgeReq, FeatureFlag.PopulateEnvironment)) {
+      populateEnvironment(edgeReq);
+    }
 
     requestStore.set(id, chain);
 

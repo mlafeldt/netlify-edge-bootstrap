@@ -1,8 +1,4 @@
 import { parse } from "https://deno.land/std@0.170.0/flags/mod.ts";
-import {
-  serve as denoServe,
-  ServeInit,
-} from "https://deno.land/std@0.170.0/http/server.ts";
 
 import { getEnvironment } from "./environment.ts";
 import { handleRequest } from "./handler.ts";
@@ -26,7 +22,7 @@ if (getEnvironment() === "local") {
 patchGlobals();
 
 export const serve = (functions: Functions) => {
-  const serveOptions: ServeInit = {
+  const serveOptions: Deno.ServeOptions = {
     // Adding a no-op listener to avoid the default one, which prints a message
     // we don't want.
     onListen() {},
@@ -37,11 +33,11 @@ export const serve = (functions: Functions) => {
     serveOptions.port = port;
   }
 
-  const server = denoServe(
+  const server = Deno.serve(
+    serveOptions,
     (req: Request) =>
       handleRequest(req, functions, { fetchRewrites, rawLogger: consoleLog }),
-    serveOptions,
   );
 
-  return server;
+  return server.finished;
 };

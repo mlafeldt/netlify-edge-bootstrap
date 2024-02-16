@@ -128,7 +128,8 @@ class FunctionChain {
         // If the client went away, stop retrying and return a 499 immediately.
         if (
           error.name === "TypeError" &&
-          error.message === "Failed to fetch: request body stream errored"
+          (error.message === "Failed to fetch: request body stream errored" ||
+            error.message.includes("http2 error: stream error sent by user"))
         ) {
           return new Response(null, { status: 499 });
         }

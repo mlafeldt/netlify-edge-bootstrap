@@ -8,7 +8,7 @@ export interface Cookie {
    * @example <caption>Explicit date:</caption>
    *
    * ```ts
-   * import { Cookie } from "https://deno.land/std@$STD_VERSION/http/cookie.ts";
+   * import { Cookie } from "@netlify/edge-functions";
    * const cookie: Cookie = {
    *   name: 'name',
    *   value: 'value',
@@ -20,7 +20,7 @@ export interface Cookie {
    * @example <caption>UTC milliseconds</caption>
    *
    * ```ts
-   * import { Cookie } from "https://deno.land/std@$STD_VERSION/http/cookie.ts";
+   * import { Cookie } from "@netlify/edge-functions";
    * const cookie: Cookie = {
    *   name: 'name',
    *   value: 'value',

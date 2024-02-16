@@ -11,6 +11,7 @@ export enum FeatureFlag {
   WarnContextNext = "edge_functions_bootstrap_warn_context_next",
   PathParams = "edge_functions_bootstrap_parse_path_params",
   PopulateEnvironment = "edge_functions_bootstrap_populate_environment",
+  DecodeQuery = "edge_functions_bootstrap_decode_query",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

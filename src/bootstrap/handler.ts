@@ -1,5 +1,9 @@
 import { isCacheable } from "./cache.ts";
-import { FeatureFlag, hasFlag } from "./feature_flags.ts";
+import {
+  FeatureFlag,
+  hasFlag,
+  parseFeatureFlagsHeader,
+} from "./feature_flags.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { logger as systemLogger } from "./log/logger.ts";
@@ -34,6 +38,12 @@ export const handleRequest = async (
   const environment = getEnvironment();
   const logger = systemLogger.withRequestID(id);
 
+  // we already parse this a bit later. doing it here is a tiny bit expensive,
+  // please remove this once you don't need it anymore.
+  const featureFlags = parseFeatureFlagsHeader(
+    req.headers.get(InternalHeaders.FeatureFlags),
+  );
+
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
     const metadata = parseInvocationMetadata(
@@ -55,19 +65,24 @@ export const handleRequest = async (
     // that it triggers.
     const invokedFunctions: string[] = [];
 
-    let edgeReqBase = req;
+    const url = new URL(req.url);
+
+    // The Golang and Node/Deno URL implementations disagree about the encoding of comma characters.
+    // Stargate percent-encodes them before invoking the Edge Function
+    // (see https://github.com/netlify/stargate/blob/5a0e0cdadf753223aba09b3e1cbadd702ed58364/proxy/deno/edge.go#L1202-L1206)
+    // but Deno doesn't decode them by default.
+    // We want this to work the same across Functions an Edge Functions, so we're doing it manually:
+    if (featureFlags[FeatureFlag.DecodeQuery]) {
+      url.search = decodeURIComponent(url.search);
+    }
 
     if (getEnvironment() === "local") {
-      const url = new URL(req.url);
-
       // We need to change the URL we expose to user code to ensure it reflects
       // the URL of the main CLI server and not the one from the internal Deno
       // server.
       url.protocol = req.headers.get(InternalHeaders.ForwardedProtocol) ??
         url.protocol;
       url.host = req.headers.get(InternalHeaders.ForwardedHost) ?? url.host;
-
-      edgeReqBase = new Request(url, req);
 
       // We also need to intercept any requests made to the same URL as the
       // incoming request, because we can only communicate with our "origin"
@@ -80,7 +95,9 @@ export const handleRequest = async (
         req.headers.has(InternalHeaders.PassthroughProtocol)
       ) {
         const passthroughOrigin = `${
-          req.headers.get(InternalHeaders.PassthroughProtocol)
+          req.headers.get(
+            InternalHeaders.PassthroughProtocol,
+          )
         }//${req.headers.get(InternalHeaders.PassthroughHost)}`;
 
         // No need to add a rewrite if the request origin is already the same
@@ -92,7 +109,7 @@ export const handleRequest = async (
     }
 
     const functionNames = functionNamesHeader.split(",");
-    const edgeReq = new EdgeRequest(edgeReqBase);
+    const edgeReq = new EdgeRequest(new Request(url, req));
     const chain = new FunctionChain({
       functionNames,
       invokedFunctions,

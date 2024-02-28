@@ -11,6 +11,7 @@ import {
   EdgeRequest,
   getCacheMode,
   getFeatureFlags,
+  getLogger,
   getPassthroughHeaders,
 } from "./request.ts";
 import { getEnvironment, populateEnvironment } from "./environment.ts";
@@ -117,6 +118,7 @@ export const handleRequest = async (
       request: edgeReq,
       router,
     });
+    const reqLogger = getLogger(edgeReq);
 
     if (hasFlag(edgeReq, FeatureFlag.PopulateEnvironment)) {
       populateEnvironment(edgeReq);
@@ -124,15 +126,14 @@ export const handleRequest = async (
 
     requestStore.set(id, chain);
 
-    if (req.headers.get(InternalHeaders.DebugLogging)) {
-      logger
-        .withFields({
-          feature_flags: Object.keys(getFeatureFlags(edgeReq)),
-          function_names: functionNames,
-          cache_mode: getCacheMode(edgeReq),
-        })
-        .log("Started edge function invocation");
-    }
+    reqLogger
+      .withFields({
+        cache_mode: getCacheMode(edgeReq),
+        feature_flags: Object.keys(getFeatureFlags(edgeReq)),
+        function_names: functionNames,
+        url: req.url,
+      })
+      .debug("Started processing edge function request");
 
     const startTime = performance.now();
     const response = await chain.run();
@@ -140,7 +141,7 @@ export const handleRequest = async (
     // Propagate headers received from passthrough calls to the final response.
     getPassthroughHeaders(edgeReq).forEach((value, key) => {
       if (response.headers.has(key)) {
-        logger
+        reqLogger
           .withFields({ header: key })
           .log("user-defined header overwritten by passthrough header");
       }
@@ -150,22 +151,21 @@ export const handleRequest = async (
 
     const endTime = performance.now();
 
-    if (req.headers.get(InternalHeaders.DebugLogging)) {
-      logger
-        .withFields({ ef_duration: endTime - startTime })
-        .log("Finished edge function invocation");
-    }
+    reqLogger
+      .withFields({ ef_duration: endTime - startTime })
+      .debug("Finished processing edge function request");
 
     const cacheControl = response.headers.get(StandardHeaders.CacheControl);
-    const shouldLogCacheControl = hasFlag(edgeReq, FeatureFlag.LogCacheControl);
 
-    if (shouldLogCacheControl && isCacheable(cacheControl)) {
-      logger
+    if (
+      hasFlag(edgeReq, FeatureFlag.LogCacheControl) && isCacheable(cacheControl)
+    ) {
+      reqLogger
         .withFields({
           cache_control: cacheControl,
           mode: getCacheMode(edgeReq),
         })
-        .log("Edge function returned cacheable cache-control headers");
+        .debug("Edge function returned cacheable cache-control headers");
     }
 
     if (hasFlag(edgeReq, FeatureFlag.InvokedFunctionsHeader)) {

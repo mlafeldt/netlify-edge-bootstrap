@@ -8,10 +8,8 @@ import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { FeatureFlag, hasFlag } from "./feature_flags.ts";
-import { logger } from "./log/logger.ts";
 import {
   hasMutatedHeaders,
-  InternalHeaders,
   mutateHeaders,
   StandardHeaders,
 } from "./headers.ts";
@@ -25,6 +23,7 @@ import {
   getDeploy,
   getGeoLocation,
   getIP,
+  getLogger,
   getRequestID,
   getSite,
   PassthroughRequest,
@@ -58,7 +57,6 @@ class FunctionChain {
   cacheMode: CacheMode;
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
-  debug: boolean;
   functionNames: string[];
   initialHeaders: Headers;
   initialRequestURL: URL;
@@ -81,7 +79,6 @@ class FunctionChain {
     this.cacheMode = getCacheMode(request);
     this.cookies = cookies;
     this.contextNextCalls = [];
-    this.debug = Boolean(request.headers.get(InternalHeaders.DebugLogging));
     this.functionNames = functionNames;
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
@@ -105,22 +102,19 @@ class FunctionChain {
     });
 
     const res = await backoffRetry(async (retryCount) => {
-      const fetchLogger = logger
+      const fetchLogger = this.logger
         .withFields({
           context_next_count: this.contextNextCalls.length,
           origin_url: url,
           retry_count: retryCount,
           strip_conditional_headers: stripConditionalHeaders,
-        })
-        .withRequestID(getRequestID(this.request));
+        });
 
-      if (this.debug) {
-        const message = retryCount === 0
+      fetchLogger.debug(
+        retryCount === 0
           ? "Started edge function request to origin"
-          : "Retrying edge function request to origin";
-
-        fetchLogger.log(message);
-      }
+          : "Retrying edge function request to origin",
+      );
 
       try {
         return await fetch(originReq, { redirect: "manual" });
@@ -156,18 +150,16 @@ class FunctionChain {
 
     const endTime = performance.now();
 
-    if (this.debug) {
-      logger
-        .withFields({
-          origin_duration: endTime - startTime,
-          origin_status: res.status,
-          origin_url: url,
-        })
-        .withRequestID(getRequestID(this.request))
-        .log(
-          "Finished edge function request to origin",
-        );
-    }
+    this.logger
+      .withFields({
+        origin_duration: endTime - startTime,
+        origin_status: res.status,
+        origin_url: url,
+      })
+      .withRequestID(getRequestID(this.request))
+      .debug(
+        "Finished edge function request to origin",
+      );
 
     return originRes;
   }
@@ -216,6 +208,10 @@ class FunctionChain {
         reqOrOptions?: Request | NextOptions,
         options: NextOptions = {},
       ) => {
+        this.logger.withFields({ functionIndex }).debug(
+          "Function called `context.next()`",
+        );
+
         if (reqOrOptions instanceof Request) {
           return this.contextNext(functionIndex, reqOrOptions, options);
         }
@@ -273,6 +269,10 @@ class FunctionChain {
     };
   }
 
+  get logger() {
+    return getLogger(this.request);
+  }
+
   json(input: unknown, init?: ResponseInit) {
     const value = JSON.stringify(input);
     const response = new Response(value, init);
@@ -298,6 +298,10 @@ class FunctionChain {
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
     }
+
+    this.logger.withFields({ url: newUrl.href }).debug(
+      "Calling origin as part of a `context.rewrite()` call",
+    );
 
     return this.fetchPassthrough(newUrl);
   }
@@ -345,6 +349,9 @@ class FunctionChain {
     requireFinalResponse = false,
   }: RunFunctionOptions): Promise<Response> {
     const func = this.getFunction(functionIndex);
+    const logger = this.logger.withFields({
+      functionIndex,
+    });
 
     // We got to the end of the chain and the last function has early-returned.
     if (func === undefined) {
@@ -373,6 +380,8 @@ class FunctionChain {
         (!hasMutatedHeaders(this.initialHeaders, this.request.headers) ||
           supportsRewriteBypass(this.request))
       ) {
+        logger.debug("Returning bypass response");
+
         return new BypassResponse({
           cookies: this.cookies,
           currentRequest: this.request,
@@ -380,6 +389,17 @@ class FunctionChain {
           initialRequestURL: this.initialRequestURL,
         });
       }
+
+      logger.withFields({
+        supportsPassthroughBypass: supportsPassthroughBypass(this.request),
+        requireFinalResponse,
+        hasBody: this.request.body !== null,
+        mutatedHeaders: hasMutatedHeaders(
+          this.initialHeaders,
+          this.request.headers,
+        ),
+        supportsRewriteBypass: supportsRewriteBypass(this.request),
+      }).debug("Calling origin at the end of function chain");
 
       return this.fetchPassthrough();
     }
@@ -404,6 +424,8 @@ class FunctionChain {
 
       // If the function returned a URL object, it means a rewrite.
       if (result instanceof URL) {
+        logger.debug("Function returned a URL object");
+
         if (result.origin !== this.initialRequestURL.origin) {
           throw new UserError(
             `Rewrite to '${result.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
@@ -448,6 +470,10 @@ class FunctionChain {
             });
           }
 
+          logger.withFields({ canBypass, requireFinalResponse }).debug(
+            "Calling origin as a result of a rewrite with a URL object",
+          );
+
           return this.fetchPassthrough(result);
         }
 
@@ -473,6 +499,8 @@ class FunctionChain {
       // If the function returned undefined, it means a bypass. Call the next
       // function in the chain.
       if (result === undefined) {
+        logger.debug("Function returned undefined");
+
         return this.runFunction({
           functionIndex: functionIndex + 1,
           nextOptions,
@@ -482,6 +510,8 @@ class FunctionChain {
 
       // If the function returned a response, return that.
       if (result instanceof Response) {
+        logger.debug("Function returned a response");
+
         // It's possible that user code may have set a `content-length` value
         // that doesn't match what we're actually sending in the body, so we
         // just strip out the header entirely since it's not required in an
@@ -503,6 +533,9 @@ class FunctionChain {
         this.request,
         FeatureFlag.FailureModes,
       );
+
+      logger.withFields({ supportsFailureModes, onError: config.onError })
+        .debug("Function has thrown an error");
 
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
@@ -544,6 +577,8 @@ class FunctionChain {
           initialRequestURL: this.initialRequestURL,
         });
       }
+
+      this.logger.debug("Calling origin as part of a rewrite failure mode");
 
       return this.fetchPassthrough(url);
     }

@@ -7,9 +7,11 @@ import {
   InternalHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
+import { logger, LogLevel, type StructuredLogger } from "./log/logger.ts";
 import { parseSiteHeader } from "./site.ts";
 import { OriginResponse } from "./response.ts";
 
+export const loggerSymbol = Symbol("Netlify Logger");
 export const internalsSymbol = Symbol("Netlify Internals");
 
 export const enum CacheMode {
@@ -67,6 +69,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
 
 export class EdgeRequest extends Request {
   [internalsSymbol]: EdgeRequestInternals;
+  [loggerSymbol]: StructuredLogger;
 
   constructor(input: RequestInfo | URL, init?: RequestInit) {
     const base = input instanceof URL ? new Request(input, init) : input;
@@ -78,6 +81,13 @@ export class EdgeRequest extends Request {
       : makeInternals(this.headers);
 
     this[internalsSymbol] = internals;
+
+    const requestID = this.headers.get(InternalHeaders.RequestID);
+    const logLevel = this.headers.has(InternalHeaders.DebugLogging)
+      ? LogLevel.Debug
+      : LogLevel.Log;
+
+    this[loggerSymbol] = logger.withRequestID(requestID).withLogLevel(logLevel);
 
     [
       InternalHeaders.AccountInfo,
@@ -119,6 +129,8 @@ export const getGeoLocation = (request: EdgeRequest) =>
   request[internalsSymbol].geo;
 
 export const getIP = (request: EdgeRequest) => request[internalsSymbol].ip;
+
+export const getLogger = (request: EdgeRequest) => request[loggerSymbol];
 
 export const getRequestID = (request: EdgeRequest) =>
   request[internalsSymbol].requestID ?? "";

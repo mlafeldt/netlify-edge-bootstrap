@@ -7,7 +7,6 @@ export enum FeatureFlag {
   InvokedFunctionsHeader = "edge_functions_bootstrap_invoked_functions_header",
   LogCacheControl = "edge_functions_bootstrap_log_cache_control",
   RunFunctionsOnFetch = "edge_functions_bootstrap_run_functions_fetch",
-  StripContentLength = "edge_functions_bootstrap_strip_content_length",
   WarnContextNext = "edge_functions_bootstrap_warn_context_next",
   PathParams = "edge_functions_bootstrap_parse_path_params",
   PopulateEnvironment = "edge_functions_bootstrap_populate_environment",

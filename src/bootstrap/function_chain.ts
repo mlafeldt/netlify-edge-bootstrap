@@ -105,6 +105,7 @@ class FunctionChain {
       const fetchLogger = this.logger
         .withFields({
           context_next_count: this.contextNextCalls.length,
+          method: originReq.method,
           origin_url: url,
           retry_count: retryCount,
           strip_conditional_headers: stripConditionalHeaders,
@@ -128,11 +129,12 @@ class FunctionChain {
           return new Response(null, { status: 499 });
         }
 
-        if (hasFlag(this.request, FeatureFlag.StripContentLength)) {
-          fetchLogger.withFields({ error: error.message }).log(
-            "Error in passthrough call",
-          );
-        }
+        fetchLogger.withFields({
+          body_used: originReq.bodyUsed,
+          error: error.message,
+        }).log(
+          "Error in passthrough call",
+        );
 
         // We can't retry requests whose body has already been consumed.
         const FetchError = originReq.bodyUsed ? UnretriableError : Error;
@@ -516,13 +518,9 @@ class FunctionChain {
         // that doesn't match what we're actually sending in the body, so we
         // just strip out the header entirely since it's not required in an
         // HTTP/2 connection.
-        if (hasFlag(this.request, FeatureFlag.StripContentLength)) {
-          return mutateHeaders(result, (headers) => {
-            headers.delete(StandardHeaders.ContentLength);
-          });
-        }
-
-        return result;
+        return mutateHeaders(result, (headers) => {
+          headers.delete(StandardHeaders.ContentLength);
+        });
       }
 
       throw new UserError(

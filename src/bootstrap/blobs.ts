@@ -20,6 +20,7 @@ interface BlobsContext {
   edgeURL: string;
   siteID: string;
   token: string;
+  uncachedEdgeURL?: string;
 }
 
 /**
@@ -29,6 +30,7 @@ interface BlobsContext {
 export interface BlobsMetadata {
   token?: string;
   url?: string;
+  url_uncached?: string;
 }
 
 export function parseBlobsMetadata(blobsHeader: string | null): BlobsMetadata {
@@ -50,7 +52,7 @@ export function setBlobsContext(
   deploy: Deploy,
   site: Site,
 ) {
-  const { token, url } = metadata;
+  const { token, url, url_uncached: uncachedURL } = metadata;
 
   if (!token || !url || !site.id) {
     return;
@@ -61,6 +63,7 @@ export function setBlobsContext(
     edgeURL: url,
     siteID: site.id,
     token,
+    uncachedEdgeURL: uncachedURL,
   };
 
   globalThis.netlifyBlobsContext = base64.encode(JSON.stringify(context));

@@ -18,6 +18,7 @@ declare global {
 interface BlobsContext {
   deployID?: string;
   edgeURL: string;
+  primaryRegion?: string;
   siteID: string;
   token: string;
   uncachedEdgeURL?: string;
@@ -28,6 +29,7 @@ interface BlobsContext {
  * Blobs, including the URL of the edge endpoint and the access token.
  */
 export interface BlobsMetadata {
+  primary_region?: string;
   token?: string;
   url?: string;
   url_uncached?: string;
@@ -52,7 +54,12 @@ export function setBlobsContext(
   deploy: Deploy,
   site: Site,
 ) {
-  const { token, url, url_uncached: uncachedURL } = metadata;
+  const {
+    primary_region: primaryRegion,
+    token,
+    url,
+    url_uncached: uncachedURL,
+  } = metadata;
 
   if (!token || !url || !site.id) {
     return;
@@ -61,6 +68,7 @@ export function setBlobsContext(
   const context: BlobsContext = {
     deployID: deploy.id,
     edgeURL: url,
+    primaryRegion,
     siteID: site.id,
     token,
     uncachedEdgeURL: uncachedURL,

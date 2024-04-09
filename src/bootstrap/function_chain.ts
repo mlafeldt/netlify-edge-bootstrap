@@ -132,6 +132,7 @@ class FunctionChain {
         fetchLogger.withFields({
           body_used: originReq.bodyUsed,
           error: error.message,
+          request_aborted: originReq.signal.aborted,
         }).log(
           "Error in passthrough call",
         );

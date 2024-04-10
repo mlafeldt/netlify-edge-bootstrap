@@ -74,7 +74,11 @@ export const handleRequest = async (
     // but Deno doesn't decode them by default.
     // We want this to work the same across Functions an Edge Functions, so we're doing it manually:
     if (featureFlags[FeatureFlag.DecodeQuery]) {
-      url.search = decodeURIComponent(url.search);
+      try {
+        url.search = decodeURIComponent(url.search);
+      } catch {
+        logger.withFields({ query: url.search }).log("Failed to decode query");
+      }
     }
 
     if (getEnvironment() === "local") {

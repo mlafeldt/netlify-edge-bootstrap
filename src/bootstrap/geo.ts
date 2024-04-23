@@ -7,10 +7,7 @@ export function parseGeoHeader(geoHeader: string | null) {
   }
 
   try {
-    const decoded = geoHeader.startsWith("{")
-      ? geoHeader
-      // we can't use atob() here because it doesn't support unicode
-      : new TextDecoder().decode(base64.decode(geoHeader));
+    const decoded = new TextDecoder().decode(base64.decode(geoHeader));
 
     const geoData: Geo = JSON.parse(decoded);
 

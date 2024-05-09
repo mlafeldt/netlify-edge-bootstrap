@@ -11,6 +11,7 @@ export enum FeatureFlag {
   PathParams = "edge_functions_bootstrap_parse_path_params",
   PopulateEnvironment = "edge_functions_bootstrap_populate_environment",
   DecodeQuery = "edge_functions_bootstrap_decode_query",
+  ForwardCDNLoop = "edge_functions_bootstrap_forward_cdn_loop",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

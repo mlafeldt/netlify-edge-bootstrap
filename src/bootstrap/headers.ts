@@ -30,6 +30,7 @@ export enum InternalHeaders {
   FunctionID = "x-nf-func-id",
   BlockReason = "x-nf-block-reason",
   PassthroughTiming = "x-nf-passthrough-timing",
+  CDNLoop = "cdn-loop",
 }
 
 export enum StandardHeaders {

@@ -30,7 +30,6 @@ interface EdgeRequestInternals {
   forwardedProtocol: string | null;
   geo: Geo;
   ip: string;
-  cdnLoop: string | null;
   passthrough: string | null;
   passthroughHost: string | null;
   passthroughProtocol: string | null;
@@ -52,7 +51,6 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     blobs: parseBlobsMetadata(headers.get(InternalHeaders.BlobsInfo)),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
-    cdnLoop: headers.get(InternalHeaders.CDNLoop),
     deploy,
     featureFlags: parseFeatureFlagsHeader(
       headers.get(InternalHeaders.FeatureFlags),

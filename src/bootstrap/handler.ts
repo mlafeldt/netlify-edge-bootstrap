@@ -45,6 +45,10 @@ export const handleRequest = async (
     req.headers.get(InternalHeaders.FeatureFlags),
   );
 
+  // A collector of all the functions invoked by this chain or any sub-chains
+  // that it triggers.
+  const invokedFunctions: string[] = [];
+
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
     const metadata = parseInvocationMetadata(
@@ -61,10 +65,6 @@ export const handleRequest = async (
         },
       );
     }
-
-    // A collector of all the functions invoked by this chain or any sub-chains
-    // that it triggers.
-    const invokedFunctions: string[] = [];
 
     const url = new URL(req.url);
 
@@ -162,7 +162,8 @@ export const handleRequest = async (
     const cacheControl = response.headers.get(StandardHeaders.CacheControl);
 
     if (
-      hasFlag(edgeReq, FeatureFlag.LogCacheControl) && isCacheable(cacheControl)
+      hasFlag(edgeReq, FeatureFlag.LogCacheControl) &&
+      isCacheable(cacheControl)
     ) {
       reqLogger
         .withFields({
@@ -172,13 +173,9 @@ export const handleRequest = async (
         .debug("Edge function returned cacheable cache-control headers");
     }
 
-    if (hasFlag(edgeReq, FeatureFlag.InvokedFunctionsHeader)) {
-      return mutateHeaders(response, (headers) => {
-        headers.set(InternalHeaders.EdgeFunctions, invokedFunctions.join(","));
-      });
-    }
-
-    return response;
+    return mutateHeaders(response, (headers) => {
+      headers.set(InternalHeaders.EdgeFunctions, invokedFunctions.join(","));
+    });
   } catch (error) {
     let errorString = String(error);
 
@@ -225,6 +222,7 @@ export const handleRequest = async (
       status: 500,
       headers: {
         [InternalHeaders.UncaughtError]: "1",
+        [InternalHeaders.EdgeFunctions]: invokedFunctions.join(","),
       },
     });
   } finally {

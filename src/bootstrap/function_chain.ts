@@ -120,19 +120,18 @@ class FunctionChain {
       try {
         return await fetch(originReq, { redirect: "manual" });
       } catch (error) {
-        // If the client went away, stop retrying and return a 499 immediately.
-        if (
-          error.name === "TypeError" &&
+        const isStreamError = error.name === "TypeError" &&
           (error.message === "Failed to fetch: request body stream errored" ||
-            error.message.includes("http2 error: stream error sent by user"))
-        ) {
+            error.message.includes("http2 error: stream error sent by user"));
+
+        // If the client went away, stop retrying and return a 499 immediately.
+        if (isStreamError || originReq.signal.aborted) {
           return new Response(null, { status: 499 });
         }
 
         fetchLogger.withFields({
           body_used: originReq.bodyUsed,
           error: error.message,
-          request_aborted: originReq.signal.aborted,
         }).log(
           "Error in passthrough call",
         );

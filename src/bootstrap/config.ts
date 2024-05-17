@@ -6,6 +6,20 @@ type OnError = "fail" | "bypass" | Path;
 
 type HTTPMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 
+type RateLimitAggregator = "domain" | "ip";
+
+type RateLimitAction = "rate_limit" | "rewrite";
+
+/**
+ * Netlify Custom Rate Limits inline configuration options.
+ */
+interface RateLimitConfig {
+  action?: RateLimitAction;
+  aggregateBy?: RateLimitAggregator | RateLimitAggregator[];
+  to?: string;
+  windowSize: number;
+}
+
 /**
  * Netlify Edge Function inline configuration options.
  *
@@ -19,6 +33,7 @@ export interface Config {
   path?: Path | Path[];
   pattern?: string | string[];
   method?: HTTPMethod | HTTPMethod[];
+  rateLimit?: RateLimitConfig;
 }
 
 /**

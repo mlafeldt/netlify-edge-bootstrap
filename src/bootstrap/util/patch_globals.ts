@@ -1,7 +1,6 @@
 import { patchDenoFS } from "../deno-fs.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
-import { patchFetchToForwardHeaders } from "./fetch.ts";
 
 const LABEL_SEPARATOR = " ";
 
@@ -53,6 +52,4 @@ export const patchGlobals = () => {
   globalThis.Deno.readLink = patchDenoFS(globalThis.Deno.readLink);
 
   Response.redirect = patchResponseRedirect(Response.redirect);
-
-  globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
 };

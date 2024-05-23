@@ -2,14 +2,12 @@ import { FeatureFlag, hasFlag } from "../feature_flags.ts";
 import { EdgeRequest, PassthroughRequest } from "../request.ts";
 import { FunctionChain } from "../function_chain.ts";
 import { getExecutionContext } from "./execution_context.ts";
-import { internalsSymbol } from "../request.ts";
-import { InternalHeaders } from "../headers.ts";
-import { logger } from "../log/logger.ts";
-import { detachedLogger } from "../log/logger.ts";
 
 // Returns a patched version of `fetch` that hijacks requests for the same
 // URL origin and runs any edge functions associated with the new path.
-export const patchFetchToRunFunctions = (rawFetch: typeof globalThis.fetch) => {
+export const patchFetchToRunFunctions = (
+  rawFetch: typeof globalThis.fetch,
+) => {
   return (...args: Parameters<typeof globalThis.fetch>) => {
     // prevents infinite loop
     if (args[0] instanceof PassthroughRequest) {
@@ -91,32 +89,5 @@ export const patchFetchWithRewrites = (
     }
 
     return rawFetch(newURL, init);
-  };
-};
-
-// Returns a patched version of `fetch` that adds headers to outgoing requests.
-export const patchFetchToForwardHeaders = (
-  rawFetch: typeof globalThis.fetch,
-) => {
-  return (input: URL | Request | string, init?: RequestInit) => {
-    const { chain } = getExecutionContext();
-    if (chain === undefined) {
-      logger.error(
-        "could not find execution context as part of loop detection mechanism",
-      );
-      return rawFetch(input, init);
-    }
-
-    if (!hasFlag(chain.request, FeatureFlag.ForwardCDNLoop)) {
-      return rawFetch(input, init);
-    }
-
-    const request = new Request(input, init);
-    const cdnLoopHeader = chain.request[internalsSymbol].cdnLoop;
-    if (cdnLoopHeader) {
-      request.headers.append(InternalHeaders.CDNLoop, cdnLoopHeader);
-    }
-
-    return rawFetch(request);
   };
 };

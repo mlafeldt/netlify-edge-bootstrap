@@ -47,6 +47,8 @@ export const conditionals = [
   "if-range",
 ];
 
+const DIRECTIVE_NO_TRANSFORM = "no-transform";
+
 // Returns the diff between two sets of headers as an object:
 // - If a header has been added or modified, it will show in the diff object
 //   with its new value
@@ -107,4 +109,32 @@ export const mutateHeaders = (
   callback(newRes.headers);
 
   return newRes;
+};
+
+/**
+ * Mutates a `Headers` object such that it always contains `cache-control` with
+ * the `no-transform` directive. It sets that header in case it has not been
+ * previously set, but it also respects existing values by appending the
+ * directive if it's not already present.
+ */
+export const ensureNoTransform = (headers: Headers) => {
+  const cacheControl = headers.get(StandardHeaders.CacheControl);
+
+  if (!cacheControl) {
+    headers.set(StandardHeaders.CacheControl, DIRECTIVE_NO_TRANSFORM);
+
+    return;
+  }
+
+  const directives = cacheControl.split(",");
+
+  if (
+    directives.some((directive) => directive.trim() === DIRECTIVE_NO_TRANSFORM)
+  ) {
+    return;
+  }
+
+  const newCacheControl = [...directives, DIRECTIVE_NO_TRANSFORM].join(",");
+
+  headers.set(StandardHeaders.CacheControl, newCacheControl);
 };

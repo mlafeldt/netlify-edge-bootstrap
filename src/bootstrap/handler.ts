@@ -16,7 +16,12 @@ import {
 } from "./request.ts";
 import { getEnvironment, populateEnvironment } from "./environment.ts";
 import { Netlify } from "./globals.ts";
-import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
+import {
+  ensureNoTransform,
+  InternalHeaders,
+  mutateHeaders,
+  StandardHeaders,
+} from "./headers.ts";
 import { parseInvocationMetadata } from "./invocation_metadata.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
@@ -174,6 +179,18 @@ export const handleRequest = async (
     }
 
     return mutateHeaders(response, (headers) => {
+      // An issue with `Deno.serve` body compression is causing browsers to
+      // buffer responses that should be streamed. As a temporary workaround,
+      // we ensure that the response has `cache-control: no-transform`.
+      // TODO: Remove once this issue has been fixed:
+      // https://github.com/denoland/netlify-support/issues/10
+      if (
+        environment === "local" ||
+        hasFlag(edgeReq, FeatureFlag.ForceNoTransform)
+      ) {
+        ensureNoTransform(headers);
+      }
+
       headers.set(InternalHeaders.EdgeFunctions, invokedFunctions.join(","));
     });
   } catch (error) {

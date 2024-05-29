@@ -30,6 +30,7 @@ export enum InternalHeaders {
   FunctionID = "x-nf-func-id",
   BlockReason = "x-nf-block-reason",
   PassthroughTiming = "x-nf-passthrough-timing",
+  PurgeAPIToken = "x-nf-purge-api-token",
 }
 
 export enum StandardHeaders {

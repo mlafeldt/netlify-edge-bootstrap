@@ -36,6 +36,7 @@ interface EdgeRequestInternals {
   passthroughHeaders?: Headers;
   requestID: string | null;
   site: Site;
+  purgeAPIToken: string | null;
 }
 
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
@@ -63,6 +64,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     passthroughHost: headers.get(InternalHeaders.PassthroughHost),
     passthroughProtocol: headers.get(InternalHeaders.PassthroughProtocol),
     requestID: headers.get(InternalHeaders.RequestID),
+    purgeAPIToken: headers.get(InternalHeaders.PurgeAPIToken),
     site,
   };
 };
@@ -140,6 +142,9 @@ export const getBypassSettings = (request: EdgeRequest) =>
 
 export const getPassthroughHeaders = (request: EdgeRequest) =>
   request[internalsSymbol].passthroughHeaders ?? new Headers();
+
+export const getPurgeAPIToken = (request: EdgeRequest) =>
+  request[internalsSymbol].purgeAPIToken;
 
 export const setPassthroughHeaders = (
   request: EdgeRequest,

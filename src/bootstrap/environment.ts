@@ -1,3 +1,4 @@
+import { getPurgeAPIToken } from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
 
 let hasPopulatedEnvironment = false;
@@ -25,6 +26,11 @@ export const populateEnvironment = (req: EdgeRequest) => {
 
   if (site.url) {
     Deno.env.set("URL", site.url);
+  }
+
+  const purgeAPIToken = getPurgeAPIToken(req);
+  if (purgeAPIToken) {
+    Deno.env.set("NETLIFY_PURGE_API_TOKEN", purgeAPIToken);
   }
 
   hasPopulatedEnvironment = true;

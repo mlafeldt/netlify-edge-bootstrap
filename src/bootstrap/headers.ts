@@ -2,6 +2,8 @@ export enum InternalHeaders {
   BlobsInfo = "x-nf-blobs-info",
   Country = "x-country",
   DeployID = "x-nf-deploy-id",
+  DeployContext = "x-nf-deploy-context",
+  DeployIsPublished = "x-nf-deploy-published",
   Geo = "x-nf-geo",
   SiteInfo = "x-nf-site-info",
   AccountInfo = "x-nf-account-info",

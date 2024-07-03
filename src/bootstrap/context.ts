@@ -27,6 +27,8 @@ export interface Site {
 
 export interface Deploy {
   id?: string;
+  context?: string;
+  published: boolean;
 }
 
 export interface Context {

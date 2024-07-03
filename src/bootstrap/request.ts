@@ -41,8 +41,10 @@ interface EdgeRequestInternals {
 
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
   const site = parseSiteHeader(headers.get(InternalHeaders.SiteInfo));
-  const deploy = {
+  const deploy: Deploy = {
+    context: headers.get(InternalHeaders.DeployContext) ?? undefined,
     id: headers.get(InternalHeaders.DeployID) ?? undefined,
+    published: headers.get(InternalHeaders.DeployIsPublished) === "1",
   };
 
   return {

@@ -15,7 +15,7 @@ import {
   getPassthroughHeaders,
 } from "./request.ts";
 import { getEnvironment, populateEnvironment } from "./environment.ts";
-import { Netlify } from "./globals.ts";
+import { Netlify } from "./globals/implementation.ts";
 import {
   ensureNoTransform,
   InternalHeaders,

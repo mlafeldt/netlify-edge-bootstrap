@@ -1,4 +1,4 @@
-import "./bootstrap/globals.ts";
+import "./bootstrap/globals/types.ts";
 
 export type {
   Config,

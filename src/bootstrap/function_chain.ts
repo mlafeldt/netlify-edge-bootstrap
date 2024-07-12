@@ -418,6 +418,7 @@ class FunctionChain {
       // stack trace.
       const result = await callWithExecutionContext(
         {
+          context,
           functionName: name,
           requestID: getRequestID(this.request),
         },

@@ -11,6 +11,7 @@ export enum FeatureFlag {
   PopulateEnvironment = "edge_functions_bootstrap_populate_environment",
   DecodeQuery = "edge_functions_bootstrap_decode_query",
   ForceNoTransform = "edge_functions_bootstrap_force_no_transform",
+  ForwardRequestID = "edge_functions_bootstrap_forward_request_id",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

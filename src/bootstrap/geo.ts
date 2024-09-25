@@ -9,7 +9,12 @@ export function parseGeoHeader(geoHeader: string | null) {
   try {
     const decoded = new TextDecoder().decode(base64.decode(geoHeader));
 
-    const geoData: Geo = JSON.parse(decoded);
+    const { postal_code: postalCode, ...rest } = JSON.parse(decoded);
+    const geoData: Geo = Object.fromEntries(
+      Object.entries({ ...rest, postalCode }).filter(
+        ([_, v]) => v !== undefined,
+      ),
+    );
 
     return geoData;
   } catch {

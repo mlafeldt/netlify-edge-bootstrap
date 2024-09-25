@@ -6,7 +6,7 @@ export interface Geo {
     code?: string;
     name?: string;
   };
-  postal_code?: string;
+  postalCode?: string;
   subdivision?: {
     code?: string;
     name?: string;
@@ -65,6 +65,7 @@ export interface Context {
   server: ServerMetadata;
   deploy: Deploy;
   params: Record<string, string>;
+  url: URL;
 }
 
 export interface NextOptions {

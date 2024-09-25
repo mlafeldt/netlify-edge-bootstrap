@@ -230,6 +230,7 @@ class FunctionChain {
       server: {
         region: Deno.env.get("DENO_REGION") ?? "",
       },
+      url: new URL(url),
     };
 
     return context;

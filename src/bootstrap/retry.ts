@@ -24,7 +24,7 @@ export async function backoffRetry<Type extends RetriedFunction>(
   while (retry < maxRetries) {
     try {
       return await func(retry);
-    } catch (error) {
+    } catch (error: any) {
       finalError = error;
 
       if (error instanceof UnretriableError) {

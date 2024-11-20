@@ -119,7 +119,7 @@ class FunctionChain {
 
       try {
         return await fetch(originReq, { redirect: "manual" });
-      } catch (error) {
+      } catch (error: any) {
         const isStreamError = error.name === "TypeError" &&
           (error.message === "Failed to fetch: request body stream errored" ||
             error.message.includes("http2 error: stream error sent by user"));

@@ -10,11 +10,11 @@ declare global {
 }
 
 interface Env {
-  delete: typeof Deno.env.delete;
-  get: typeof Deno.env.get;
-  has: typeof Deno.env.has;
-  set: typeof Deno.env.set;
-  toObject: typeof Deno.env.toObject;
+  delete: (key: string) => void;
+  get: (key: string) => string | undefined;
+  has: (key: string) => boolean;
+  set: (key: string, value: string) => void;
+  toObject: () => { [index: string]: string };
 }
 
 export interface NetlifyGlobal {

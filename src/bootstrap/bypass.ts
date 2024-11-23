@@ -1,4 +1,4 @@
-import { Status } from "https://deno.land/std@0.170.0/http/http_status.ts";
+import { Status } from "../vendor/deno.land/std@0.170.0/http/http_status.ts";
 
 import { CookieStore } from "./cookie_store.ts";
 import {

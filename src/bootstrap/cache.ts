@@ -1,4 +1,4 @@
-import cacheControlParser from "https://esm.sh/cache-control-parser@2.0.2";
+import cacheControlParser from "../vendor/esm.sh/v135/cache-control-parser@2.0.2/denonext/cache-control-parser.mjs";
 
 export const isCacheable = (cacheControl: string | null) => {
   if (!cacheControl) {

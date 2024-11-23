@@ -1,4 +1,4 @@
-import { parse } from "https://deno.land/std@0.170.0/flags/mod.ts";
+import { parse } from "../vendor/deno.land/std@0.170.0/flags/mod.ts";
 
 import { getEnvironment } from "./environment.ts";
 import { handleRequest } from "./handler.ts";
@@ -22,7 +22,7 @@ if (getEnvironment() === "local") {
 patchGlobals();
 
 export const serve = (functions: Functions) => {
-  const serveOptions: Deno.ServeOptions = {
+  const serveOptions: Deno.ServeTcpOptions = {
     // Adding a no-op listener to avoid the default one, which prints a message
     // we don't want.
     onListen() {},

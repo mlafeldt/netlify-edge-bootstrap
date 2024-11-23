@@ -1,4 +1,4 @@
-import { delay } from "https://deno.land/std@0.170.0/async/mod.ts";
+import { delay } from "../vendor/deno.land/std@0.170.0/async/mod.ts";
 
 import { UnretriableError } from "./util/errors.ts";
 

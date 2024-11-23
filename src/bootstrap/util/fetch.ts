@@ -3,9 +3,8 @@ import { EdgeRequest, PassthroughRequest } from "../request.ts";
 import { FunctionChain } from "../function_chain.ts";
 import { getExecutionContext } from "./execution_context.ts";
 import { internalsSymbol } from "../request.ts";
-import { InternalHeaders } from "../headers.ts";
+import { InternalHeaders, StandardHeaders } from "../headers.ts";
 import { logger } from "../log/logger.ts";
-import { detachedLogger } from "../log/logger.ts";
 
 // Returns a patched version of `fetch` that hijacks requests for the same
 // URL origin and runs any edge functions associated with the new path.
@@ -111,14 +110,15 @@ export const patchFetchToForwardHeaders = (
       return rawFetch(input, init);
     }
 
-    if (!hasFlag(chain.request, FeatureFlag.ForwardRequestID)) {
-      return rawFetch(input, init);
+    const request = new Request(input, init);
+    const { cdnLoop, requestID } = chain.request[internalsSymbol];
+
+    if (requestID && hasFlag(chain.request, FeatureFlag.ForwardRequestID)) {
+      request.headers.set(InternalHeaders.RequestID, requestID);
     }
 
-    const request = new Request(input, init);
-    const requestID = chain.request[internalsSymbol].requestID;
-    if (requestID) {
-      request.headers.append(InternalHeaders.RequestID, requestID);
+    if (cdnLoop && hasFlag(chain.request, FeatureFlag.ForwardCDNLoop)) {
+      request.headers.append(StandardHeaders.CDNLoop, cdnLoop);
     }
 
     return rawFetch(request);

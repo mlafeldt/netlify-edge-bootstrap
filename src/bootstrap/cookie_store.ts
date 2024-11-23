@@ -2,7 +2,7 @@ import {
   deleteCookie,
   getCookies,
   setCookie,
-} from "https://deno.land/std@0.170.0/http/cookie.ts";
+} from "../vendor/deno.land/std@0.170.0/http/cookie.ts";
 
 import { Cookie, Cookies, DeleteCookieOptions } from "./cookie.ts";
 

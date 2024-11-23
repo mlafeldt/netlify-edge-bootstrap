@@ -12,6 +12,7 @@ export enum FeatureFlag {
   DecodeQuery = "edge_functions_bootstrap_decode_query",
   ForceNoTransform = "edge_functions_bootstrap_force_no_transform",
   ForwardRequestID = "edge_functions_bootstrap_forward_request_id",
+  ForwardCDNLoop = "edge_functions_bootstrap_forward_cdn_loop",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

@@ -1,4 +1,4 @@
-import * as base64 from "https://deno.land/std@0.170.0/encoding/base64.ts";
+import * as base64 from "../vendor/deno.land/std@0.170.0/encoding/base64.ts";
 import type { Site } from "./context.ts";
 
 export function parseSiteHeader(siteHeader: string | null): Site {

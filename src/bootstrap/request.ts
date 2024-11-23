@@ -5,6 +5,7 @@ import { parseGeoHeader } from "./geo.ts";
 import {
   conditionals as conditionalHeaders,
   InternalHeaders,
+  StandardHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { logger, LogLevel, type StructuredLogger } from "./log/logger.ts";
@@ -24,6 +25,7 @@ interface EdgeRequestInternals {
   blobs: BlobsMetadata;
   bypassSettings: string | null;
   cacheMode: string | null;
+  cdnLoop: string | null;
   deploy: Deploy;
   featureFlags: FeatureFlags;
   forwardedHost: string | null;
@@ -54,6 +56,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     blobs: parseBlobsMetadata(headers.get(InternalHeaders.BlobsInfo)),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
+    cdnLoop: headers.get(StandardHeaders.CDNLoop),
     deploy,
     featureFlags: parseFeatureFlagsHeader(
       headers.get(InternalHeaders.FeatureFlags),

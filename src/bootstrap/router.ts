@@ -1,5 +1,5 @@
 import { EdgeFunction } from "./edge_function.ts";
-import { InvocationMetadata } from "./invocation_metadata.ts";
+import { RequestInvocationMetadata } from "./invocation_metadata.ts";
 import { StructuredLogger } from "./log/logger.ts";
 import type { Functions } from "./stage_2.ts";
 
@@ -45,7 +45,7 @@ export class Router {
 
   constructor(
     functions: Functions,
-    metadata: InvocationMetadata,
+    metadata: RequestInvocationMetadata,
     logger: StructuredLogger,
   ) {
     const rawConfig = metadata.function_config ?? {};

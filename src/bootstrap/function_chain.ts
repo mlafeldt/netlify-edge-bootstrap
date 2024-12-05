@@ -13,6 +13,7 @@ import {
   mutateHeaders,
   StandardHeaders,
 } from "./headers.ts";
+import { RequestMetrics } from "./metrics.ts";
 import { getPathParameters } from "./path_parameters.ts";
 import {
   CacheMode,
@@ -38,12 +39,19 @@ import { callWithExecutionContext } from "./util/execution_context.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
+  executionController?: AbortController;
   functionNames: string[];
+  initialMetrics?: RequestMetrics;
   initialRequestURL?: URL;
-  invokedFunctions?: string[];
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
+  timeoutSignal?: AbortSignal;
+}
+
+interface RunOptions {
+  previousRewrites?: Set<string>;
+  requireFinalResponse?: boolean;
 }
 
 interface RunFunctionOptions {
@@ -57,35 +65,42 @@ class FunctionChain {
   cacheMode: CacheMode;
   cookies: CookieStore;
   contextNextCalls: NextOptions[];
+  executionController: AbortController;
   functionNames: string[];
   initialHeaders: Headers;
   initialRequestURL: URL;
-  invokedFunctions: string[];
+  metrics: RequestMetrics;
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
+  timeoutSignal?: AbortSignal;
 
   constructor(
     {
       request,
       cookies = new CookieStore(request),
+      executionController,
       functionNames,
+      initialMetrics,
       initialRequestURL = new URL(request.url),
-      invokedFunctions = [],
       rawLogger,
       router,
+      timeoutSignal,
     }: FunctionChainOptions,
+    parentChain?: FunctionChain,
   ) {
     this.cacheMode = getCacheMode(request);
     this.cookies = cookies;
     this.contextNextCalls = [];
+    this.executionController = executionController ?? new AbortController();
     this.functionNames = functionNames;
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
-    this.invokedFunctions = invokedFunctions;
+    this.metrics = new RequestMetrics(initialMetrics ?? parentChain?.metrics);
     this.rawLogger = rawLogger;
     this.request = request;
     this.router = router;
+    this.timeoutSignal = timeoutSignal ?? parentChain?.timeoutSignal;
   }
 
   async fetchPassthrough(url?: URL) {
@@ -147,14 +162,13 @@ class FunctionChain {
         );
       }
     });
+
     const originRes = new OriginResponse(res);
     setPassthroughHeaders(this.request, originRes);
 
-    const endTime = performance.now();
-
     this.logger
       .withFields({
-        origin_duration: endTime - startTime,
+        origin_duration: performance.now() - startTime,
         origin_status: res.status,
         origin_url: url,
       })
@@ -310,10 +324,7 @@ class FunctionChain {
   }
 
   async run(
-    { previousRewrites, requireFinalResponse }: {
-      previousRewrites?: Set<string>;
-      requireFinalResponse?: boolean;
-    } = {},
+    { previousRewrites, requireFinalResponse }: RunOptions = {},
   ) {
     const blobsMetadata = getBlobs(this.request);
     const deploy = getDeploy(this.request);
@@ -343,6 +354,41 @@ class FunctionChain {
     }
 
     return response;
+  }
+
+  runWithSignal(
+    options?: RunOptions,
+  ) {
+    let chainHasFinished = false;
+
+    const timeoutSignal = this.timeoutSignal;
+
+    if (!timeoutSignal) {
+      return this.run(options);
+    }
+
+    // When this signal aborts, the maximum time to return a response has been
+    // exhausted. If we haven't already returned a response, we abort the main
+    // execution controller. If not, we do nothing.
+    timeoutSignal.addEventListener("abort", () => {
+      if (!chainHasFinished) {
+        this.executionController.abort();
+      }
+    });
+
+    return new Promise<Response>((resolve, reject) => {
+      // If the execution controller aborts, we want to stop the invocation in
+      // its tracks, so we reject the Promise.
+      this.executionController.signal.addEventListener("abort", () => {
+        reject(this.executionController.signal.reason);
+      });
+
+      this.run(options).then(resolve).catch(reject).finally(() => {
+        // The chain has finished. We no longer want the execution controller
+        // to abort.
+        chainHasFinished = true;
+      });
+    });
   }
 
   async runFunction({
@@ -410,7 +456,7 @@ class FunctionChain {
     const { config, name, source } = func;
     const context = this.getContext(functionIndex);
 
-    this.invokedFunctions.push(name);
+    this.metrics.registerInvokedFunction(name);
 
     try {
       // Rather than calling the function directly, we call it through a special
@@ -483,21 +529,27 @@ class FunctionChain {
 
         const newChain = new FunctionChain({
           cookies: this.cookies,
+          executionController: this.executionController,
           functionNames: functions.map((route) => route.name),
           initialRequestURL: this.initialRequestURL,
-          invokedFunctions: this.invokedFunctions,
           rawLogger: this.rawLogger,
           request: newRequest,
           router: this.router,
-        });
-
-        return newChain.run({
+          timeoutSignal: this.timeoutSignal,
+        }, this);
+        const runOptions: RunOptions = {
           previousRewrites: new Set([
             ...previousRewrites,
             result.pathname,
           ]),
           requireFinalResponse: requireFinalResponse || !canBypass,
-        });
+        };
+
+        if (this.timeoutSignal) {
+          return newChain.runWithSignal(runOptions);
+        }
+
+        return newChain.run(runOptions);
       }
 
       // If the function returned undefined, it means a bypass. Call the next

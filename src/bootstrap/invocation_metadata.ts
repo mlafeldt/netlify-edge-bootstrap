@@ -3,7 +3,7 @@ export interface FunctionConfig {
   generator?: string;
   on_error?: string;
 }
-export interface InvocationMetadata {
+export interface RequestInvocationMetadata {
   function_config?: Record<string, FunctionConfig>;
   req_routes?: number[];
   routes?: {
@@ -16,7 +16,7 @@ export interface InvocationMetadata {
 
 // Parses the header with invocation metadata sent by our edge nodes. It holds
 // a Base64-encoded JSON string with the list of all routes and configuration.
-export function parseInvocationMetadata(
+export function parseRequestInvocationMetadata(
   routingHeader: string | null,
 ) {
   if (!routingHeader) {
@@ -24,7 +24,9 @@ export function parseInvocationMetadata(
   }
 
   try {
-    const routingData: InvocationMetadata = JSON.parse(atob(routingHeader));
+    const routingData: RequestInvocationMetadata = JSON.parse(
+      atob(routingHeader),
+    );
 
     return routingData;
   } catch {

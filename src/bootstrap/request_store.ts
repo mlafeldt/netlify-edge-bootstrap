@@ -1,5 +1,6 @@
 import type { FunctionChain } from "./function_chain.ts";
 
-type RequestStore = Map<string, FunctionChain>;
+type RequestID = string;
+type RequestStore = Map<RequestID, FunctionChain>;
 
 export const requestStore: RequestStore = new Map();

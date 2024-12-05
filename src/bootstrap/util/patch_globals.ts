@@ -1,5 +1,6 @@
 import { patchDenoFS } from "../deno-fs.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
+import { patchFetchToTrackSubrequests } from "../util/fetch.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
 import { patchFetchToForwardHeaders } from "./fetch.ts";
 
@@ -55,4 +56,5 @@ export const patchGlobals = () => {
   Response.redirect = patchResponseRedirect(Response.redirect);
 
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
+  globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
 };

@@ -22,7 +22,8 @@ import {
   mutateHeaders,
   StandardHeaders,
 } from "./headers.ts";
-import { parseInvocationMetadata } from "./invocation_metadata.ts";
+import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
+import { RequestMetrics } from "./metrics.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
@@ -31,6 +32,7 @@ import { ErrorType, UserError } from "./util/errors.ts";
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
   rawLogger?: Logger;
+  requestTimeout?: number;
 }
 
 globalThis.Netlify = Netlify;
@@ -38,7 +40,11 @@ globalThis.Netlify = Netlify;
 export const handleRequest = async (
   req: Request,
   functions: Functions,
-  { fetchRewrites, rawLogger = console.log }: HandleRequestOptions = {},
+  {
+    fetchRewrites,
+    rawLogger = console.log,
+    requestTimeout = 0,
+  }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
@@ -52,11 +58,17 @@ export const handleRequest = async (
 
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.
-  const invokedFunctions: string[] = [];
+  const metrics = new RequestMetrics();
+
+  // An `AbortSignal` that will abort when the configured timeout is hit.
+  const timeoutSignal =
+    featureFlags[FeatureFlag.InvocationTimeout] && requestTimeout
+      ? AbortSignal.timeout(requestTimeout)
+      : undefined;
 
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
-    const metadata = parseInvocationMetadata(
+    const metadata = parseRequestInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
     const router = new Router(functions, metadata, logger);
@@ -122,10 +134,11 @@ export const handleRequest = async (
     const edgeReq = new EdgeRequest(new Request(url, req));
     const chain = new FunctionChain({
       functionNames,
-      invokedFunctions,
+      initialMetrics: metrics,
       rawLogger,
       request: edgeReq,
       router,
+      timeoutSignal,
     });
     const reqLogger = getLogger(edgeReq);
 
@@ -145,7 +158,8 @@ export const handleRequest = async (
       .debug("Started processing edge function request");
 
     const startTime = performance.now();
-    const response = await chain.run();
+    const response =
+      await (timeoutSignal ? chain.runWithSignal() : chain.run());
 
     // Propagate headers received from passthrough calls to the final response.
     getPassthroughHeaders(edgeReq).forEach((value, key) => {
@@ -191,7 +205,7 @@ export const handleRequest = async (
         ensureNoTransform(headers);
       }
 
-      headers.set(InternalHeaders.EdgeFunctions, invokedFunctions.join(","));
+      metrics.writeHeaders(headers);
     });
   } catch (error) {
     let errorString = String(error);
@@ -235,13 +249,25 @@ export const handleRequest = async (
         .log("uncaught exception while handling request");
     }
 
-    return new Response(errorString, {
+    const headers: Record<string, string> = {
+      [InternalHeaders.UncaughtError]: "1",
+    };
+
+    if (
+      (error instanceof Error) &&
+      (error?.name === "AbortError" || error?.name === "TimeoutError")
+    ) {
+      headers[InternalHeaders.InvocationError] = "timeout";
+    }
+
+    const response = new Response(errorString, {
       status: 500,
-      headers: {
-        [InternalHeaders.UncaughtError]: "1",
-        [InternalHeaders.EdgeFunctions]: invokedFunctions.join(","),
-      },
+      headers,
     });
+
+    metrics.writeHeaders(response.headers);
+
+    return response;
   } finally {
     if (id) {
       requestStore.delete(id);

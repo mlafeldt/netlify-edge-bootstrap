@@ -16,6 +16,7 @@ export enum InternalHeaders {
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
   UncaughtError = "x-nf-uncaught-error",
+  InvocationError = "x-nf-edge-function-error",
   FeatureFlags = "x-nf-feature-flags",
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   DebugLogging = "x-nf-debug-logging",
@@ -33,6 +34,7 @@ export enum InternalHeaders {
   BlockReason = "x-nf-block-reason",
   PassthroughTiming = "x-nf-passthrough-timing",
   PurgeAPIToken = "x-nf-purge-api-token",
+  FetchTiming = "x-nf-fetch-timing",
 }
 
 export enum StandardHeaders {

@@ -27,7 +27,7 @@ import { RequestMetrics } from "./metrics.ts";
 import { requestStore } from "./request_store.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
-import { ErrorType, UserError } from "./util/errors.ts";
+import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
 
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
@@ -249,20 +249,11 @@ export const handleRequest = async (
         .log("uncaught exception while handling request");
     }
 
-    const headers: Record<string, string> = {
-      [InternalHeaders.UncaughtError]: "1",
-    };
-
-    if (
-      (error instanceof Error) &&
-      (error?.name === "AbortError" || error?.name === "TimeoutError")
-    ) {
-      headers[InternalHeaders.InvocationError] = "timeout";
-    }
-
     const response = new Response(errorString, {
       status: 500,
-      headers,
+      headers: {
+        [InternalHeaders.UncaughtError]: getInvocationErrorHeader(error),
+      },
     });
 
     metrics.writeHeaders(response.headers);
@@ -273,4 +264,19 @@ export const handleRequest = async (
       requestStore.delete(id);
     }
   }
+};
+
+const getInvocationErrorHeader = (error: unknown) => {
+  if (error instanceof PassthroughError) {
+    return "passthrough";
+  }
+
+  if (
+    (error instanceof Error) &&
+    (error?.name === "AbortError" || error?.name === "TimeoutError")
+  ) {
+    return "timeout";
+  }
+
+  return "1";
 };

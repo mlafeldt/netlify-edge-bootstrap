@@ -33,7 +33,11 @@ import {
 import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { OnError, Router } from "./router.ts";
-import { UnretriableError, UserError } from "./util/errors.ts";
+import {
+  PassthroughError,
+  UnretriableError,
+  UserError,
+} from "./util/errors.ts";
 import { isRedirect } from "./util/redirect.ts";
 import { callWithExecutionContext } from "./util/execution_context.ts";
 
@@ -104,6 +108,14 @@ class FunctionChain {
   }
 
   async fetchPassthrough(url?: URL) {
+    try {
+      return await this.fetchPassthroughWithRetries(url);
+    } catch (error: any) {
+      throw new PassthroughError(error);
+    }
+  }
+
+  async fetchPassthroughWithRetries(url?: URL) {
     const startTime = performance.now();
 
     // We strip the conditional headers if `context.next()` was called and at
@@ -151,15 +163,12 @@ class FunctionChain {
           "Error in passthrough call",
         );
 
-        // We can't retry requests whose body has already been consumed.
-        const FetchError = originReq.bodyUsed ? UnretriableError : Error;
+        // We can't retry requests whose body has already been consumed. If the
+        // request failed because the associated signal has aborted, we don't
+        // want to retry either.
+        const canRetry = !originReq.bodyUsed && error.name !== "AbortError";
 
-        throw new FetchError(
-          "There was an internal error while processing your request",
-          {
-            cause: error,
-          },
-        );
+        throw canRetry ? error : new UnretriableError(error);
       }
     });
 

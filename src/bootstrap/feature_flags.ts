@@ -14,6 +14,8 @@ export enum FeatureFlag {
   ForwardRequestID = "edge_functions_bootstrap_forward_request_id",
   ForwardCDNLoop = "edge_functions_bootstrap_forward_cdn_loop",
   InvocationTimeout = "edge_functions_bootstrap_invocation_timeout",
+  ImprovedRequestStoreCleanup =
+    "edge_functions_bootstrap_improved_request_store_cleanup",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

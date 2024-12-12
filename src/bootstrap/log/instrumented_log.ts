@@ -2,7 +2,7 @@ import { getEnvironment } from "../environment.ts";
 import { StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
 import { requestStore } from "../request_store.ts";
-import { getExecutionContext } from "../util/execution_context.ts";
+import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 
 type LogType = "systemJSON";
 
@@ -94,7 +94,9 @@ export type Logger = (...data: unknown[]) => void;
 export const patchLogger = (logger: Logger) => {
   return (...data: unknown[]) => {
     try {
-      const { functionName, requestID } = getExecutionContext();
+      const { functionName, requestID } = getExecutionContextAndLogFailure(
+        "logger",
+      );
 
       return instrumentedLog(logger, data, functionName, requestID);
     } catch {

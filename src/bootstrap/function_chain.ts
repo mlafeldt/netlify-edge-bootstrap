@@ -468,10 +468,8 @@ class FunctionChain {
     this.metrics.registerInvokedFunction(name);
 
     try {
-      // Rather than calling the function directly, we call it through a special
-      // identity function. The name of this function has a marker that allows us
-      // to decode the request ID from any `console.log` calls by inspecting the
-      // stack trace.
+      // Wrap the function call with the execution context, so that we can find
+      // the request context from any scope. Uses Node's `AsyncLocalStorage`.
       const result = await callWithExecutionContext(
         {
           context,

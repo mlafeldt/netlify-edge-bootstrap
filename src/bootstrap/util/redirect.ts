@@ -1,7 +1,7 @@
 import { Status } from "../../vendor/deno.land/std@0.170.0/http/http_status.ts";
 
 import { detachedLogger } from "../log/logger.ts";
-import { getExecutionContext } from "./execution_context.ts";
+import { getExecutionContextAndLogFailure } from "./execution_context.ts";
 
 // https://github.com/denoland/deno/blob/7ba0d849aa8362091574232484563482f9b6bfe7/ext/fetch/23_response.js#L81-L88
 const redirectStatus = new Set([
@@ -34,7 +34,7 @@ export const patchResponseRedirect = (
     // request.
     if (typeof url === "string" && url.startsWith("/")) {
       try {
-        const { chain } = getExecutionContext();
+        const { chain } = getExecutionContextAndLogFailure("response-redirect");
 
         if (chain === undefined) {
           throw new Error("Could not find chain");

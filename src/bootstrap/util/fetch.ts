@@ -1,13 +1,8 @@
 import { FeatureFlag, hasFlag } from "../feature_flags.ts";
 import { InternalHeaders, StandardHeaders } from "../headers.ts";
 import { detachedLogger, logger } from "../log/logger.ts";
-import {
-  EdgeRequest,
-  internalsSymbol,
-  PassthroughRequest,
-} from "../request.ts";
-import { FunctionChain } from "../function_chain.ts";
-import { getExecutionContext } from "./execution_context.ts";
+import { internalsSymbol, PassthroughRequest } from "../request.ts";
+import { getExecutionContextAndLogFailure } from "./execution_context.ts";
 
 /**
  * Takes the first argument of a `fetch()` call and returns a URL object that
@@ -43,13 +38,9 @@ export const patchFetchToTrackSubrequests = (
       return rawFetch(...args);
     }
 
-    const { chain } = getExecutionContext();
+    const { chain } = getExecutionContextAndLogFailure("track-subrequests");
 
     if (chain === undefined) {
-      detachedLogger.withFields({ url: url?.toString() }).error(
-        "Could not correlate fetch call to execution context",
-      );
-
       return rawFetch(...args);
     }
 
@@ -77,53 +68,6 @@ export const patchFetchToTrackSubrequests = (
     } finally {
       call.end();
     }
-  };
-};
-
-// Returns a patched version of `fetch` that hijacks requests for the same
-// URL origin and runs any edge functions associated with the new path.
-export const patchFetchToRunFunctions = (rawFetch: typeof globalThis.fetch) => {
-  return (...args: Parameters<typeof globalThis.fetch>) => {
-    // prevents infinite loop
-    if (args[0] instanceof PassthroughRequest) {
-      return rawFetch(...args);
-    }
-
-    try {
-      const { chain } = getExecutionContext();
-
-      if (chain === undefined) {
-        throw new Error("Could not find chain");
-      }
-
-      if (!hasFlag(chain.request, FeatureFlag.RunFunctionsOnFetch)) {
-        throw new Error("Feature flag not set");
-      }
-
-      const fetchRequest = new Request(args[0], args[1]);
-      const fetchURL = new URL(fetchRequest.url);
-      const requestURL = new URL(chain.request.url);
-
-      // We only want to run additional edge functions for same-site calls.
-      if (fetchURL.origin === requestURL.origin) {
-        const functions = chain.router.match(fetchURL, fetchRequest.method);
-        const newRequest = new EdgeRequest(fetchRequest, chain.request);
-        const newChain = new FunctionChain({
-          request: newRequest,
-          functionNames: functions.map((route) => route.name),
-          rawLogger: console.log,
-          router: chain.router,
-        }, chain);
-
-        return newChain.run({
-          requireFinalResponse: true,
-        });
-      }
-    } catch {
-      // no-op
-    }
-
-    return rawFetch(...args);
   };
 };
 
@@ -175,11 +119,8 @@ export const patchFetchToForwardHeaders = (
       return rawFetch(input, init);
     }
 
-    const { chain } = getExecutionContext();
+    const { chain } = getExecutionContextAndLogFailure("forward-headers");
     if (chain === undefined) {
-      logger.error(
-        "could not find execution context as part of header forwarding mechanism",
-      );
       return rawFetch(input, init);
     }
 

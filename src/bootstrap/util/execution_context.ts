@@ -33,7 +33,9 @@ export const getExecutionContextAndLogFailure = (type: string) => {
     loggedFailureTypes.add(type);
 
     detachedLogger.withFields({
-      tracked_context: Boolean(result.requestID),
+      tracked_context: Boolean(
+        result.context || result.functionName || result.requestID,
+      ),
       type,
     })
       .error("could not find execution context for request correlation");

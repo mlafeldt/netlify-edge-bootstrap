@@ -6,7 +6,7 @@ import {
 } from "./feature_flags.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
-import { logger as systemLogger } from "./log/logger.ts";
+import { detachedLogger } from "./log/logger.ts";
 import {
   EdgeRequest,
   getCacheMode,
@@ -24,10 +24,6 @@ import {
 } from "./headers.ts";
 import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
 import { RequestMetrics } from "./metrics.ts";
-import {
-  getResponseWithRequestStoreCleanup,
-  requestStore,
-} from "./request_store.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
 import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
@@ -52,22 +48,13 @@ export const handleRequest = async (
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
-  const logger = systemLogger.withRequestID(id);
+  const logger = detachedLogger.withRequestID(id);
 
   // We already parse this a bit later. Doing it here is a tiny bit expensive,
   // please remove this once you don't need it anymore.
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
-
-  // In the first iteration of the request context tracking logic, we deleted
-  // from the request store as soon as a response was returned. This caused
-  // issues with invocations that needed access to the context after the
-  // response had been returned (e.g. emitting a log line in a streaming
-  // function). This new mechanism lets us be a bit smarter about when we
-  // delete the request by looking at when the response body is flushed.
-  const useImprovedRequestStoreCleanup =
-    featureFlags[FeatureFlag.ImprovedRequestStoreCleanup];
 
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.
@@ -84,7 +71,7 @@ export const handleRequest = async (
     const metadata = parseRequestInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
-    const router = new Router(functions, metadata, logger);
+    const router = new Router(functions, metadata);
 
     if (id == null || functionNamesHeader == null) {
       return new Response(
@@ -153,21 +140,18 @@ export const handleRequest = async (
       router,
       timeoutSignal,
     });
-    const reqLogger = getLogger(edgeReq);
+    const reqLogger = getLogger(edgeReq).withFields({
+      cache_mode: getCacheMode(edgeReq),
+      feature_flags: Object.keys(getFeatureFlags(edgeReq)),
+      function_names: functionNames,
+      url: req.url,
+    });
 
     if (hasFlag(edgeReq, FeatureFlag.PopulateEnvironment)) {
       populateEnvironment(edgeReq);
     }
 
-    requestStore.set(id, chain);
-
     reqLogger
-      .withFields({
-        cache_mode: getCacheMode(edgeReq),
-        feature_flags: Object.keys(getFeatureFlags(edgeReq)),
-        function_names: functionNames,
-        url: req.url,
-      })
       .debug("Started processing edge function request");
 
     const startTime = performance.now();
@@ -205,7 +189,7 @@ export const handleRequest = async (
         .debug("Edge function returned cacheable cache-control headers");
     }
 
-    const responseWithMutatedHeaders = mutateHeaders(response, (headers) => {
+    return mutateHeaders(response, (headers) => {
       // An issue with `Deno.serve` body compression is causing browsers to
       // buffer responses that should be streamed. As a temporary workaround,
       // we ensure that the response has `cache-control: no-transform`.
@@ -220,12 +204,6 @@ export const handleRequest = async (
 
       metrics.writeHeaders(headers);
     });
-
-    if (useImprovedRequestStoreCleanup) {
-      return getResponseWithRequestStoreCleanup(responseWithMutatedHeaders, id);
-    }
-
-    return responseWithMutatedHeaders;
   } catch (error) {
     let errorString = String(error);
 
@@ -268,10 +246,6 @@ export const handleRequest = async (
         .log("uncaught exception while handling request");
     }
 
-    if (useImprovedRequestStoreCleanup && id) {
-      requestStore.delete(id);
-    }
-
     const response = new Response(errorString, {
       status: 500,
       headers: {
@@ -282,10 +256,6 @@ export const handleRequest = async (
     metrics.writeHeaders(response.headers);
 
     return response;
-  } finally {
-    if (!useImprovedRequestStoreCleanup && id) {
-      requestStore.delete(id);
-    }
   }
 };
 

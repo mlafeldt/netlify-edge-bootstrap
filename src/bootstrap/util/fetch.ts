@@ -1,6 +1,6 @@
 import { FeatureFlag, hasFlag } from "../feature_flags.ts";
 import { InternalHeaders, StandardHeaders } from "../headers.ts";
-import { detachedLogger, logger } from "../log/logger.ts";
+import { detachedLogger } from "../log/logger.ts";
 import { internalsSymbol, PassthroughRequest } from "../request.ts";
 import { getExecutionContextAndLogFailure } from "./execution_context.ts";
 
@@ -28,6 +28,12 @@ export const patchFetchToTrackSubrequests = (
   rawFetch: typeof globalThis.fetch,
 ) => {
   return async (...args: Parameters<typeof globalThis.fetch>) => {
+    // For passthrough requests, we inject the `ABortSignal` and track the
+    // duration manually upstream.
+    if (args[0] instanceof PassthroughRequest) {
+      return rawFetch(...args);
+    }
+
     const url = safelyGetFetchURL(args[0]);
 
     if (url === undefined) {
@@ -38,11 +44,15 @@ export const patchFetchToTrackSubrequests = (
       return rawFetch(...args);
     }
 
-    const { chain } = getExecutionContextAndLogFailure("track-subrequests");
+    const executionContext = getExecutionContextAndLogFailure(
+      "track-subrequests",
+    );
 
-    if (chain === undefined) {
+    if (executionContext?.chain === undefined) {
       return rawFetch(...args);
     }
+
+    const { chain } = executionContext;
 
     // @ts-ignore-error Deno 2.0 flags this as a type error even though `signal`
     // is part of `RequestInit`. More context:
@@ -55,11 +65,7 @@ export const patchFetchToTrackSubrequests = (
 
     args[1] = { ...args[1], signal };
 
-    const call = args[0] instanceof PassthroughRequest
-      ? chain.metrics.startPassthrough()
-      : chain.metrics.startFetch(
-        url.host,
-      );
+    const call = chain.metrics.startFetch(url.host);
 
     try {
       const result = await rawFetch(...args);
@@ -115,15 +121,19 @@ export const patchFetchToForwardHeaders = (
   rawFetch: typeof globalThis.fetch,
 ) => {
   return (input: URL | Request | string, init?: RequestInit) => {
+    // For passthrough requests, we manually append the headers upstream.
     if (input instanceof PassthroughRequest) {
       return rawFetch(input, init);
     }
 
-    const { chain } = getExecutionContextAndLogFailure("forward-headers");
-    if (chain === undefined) {
+    const executionContext = getExecutionContextAndLogFailure(
+      "forward-headers",
+    );
+    if (executionContext?.chain === undefined) {
       return rawFetch(input, init);
     }
 
+    const { chain } = executionContext;
     const request = new Request(input, init);
     const { cdnLoop, requestID } = chain.request[internalsSymbol];
 

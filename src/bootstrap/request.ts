@@ -8,7 +8,11 @@ import {
   StandardHeaders,
 } from "./headers.ts";
 import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
-import { logger, LogLevel, type StructuredLogger } from "./log/logger.ts";
+import {
+  detachedLogger,
+  LogLevel,
+  type StructuredLogger,
+} from "./log/logger.ts";
 import { parseSiteHeader } from "./site.ts";
 import { OriginResponse } from "./response.ts";
 
@@ -94,7 +98,9 @@ export class EdgeRequest extends Request {
       ? LogLevel.Debug
       : LogLevel.Log;
 
-    this[loggerSymbol] = logger.withRequestID(requestID).withLogLevel(logLevel);
+    this[loggerSymbol] = detachedLogger.withRequestID(requestID).withLogLevel(
+      logLevel,
+    );
 
     [
       InternalHeaders.AccountInfo,

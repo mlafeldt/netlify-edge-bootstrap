@@ -34,12 +34,15 @@ export const patchResponseRedirect = (
     // request.
     if (typeof url === "string" && url.startsWith("/")) {
       try {
-        const { chain } = getExecutionContextAndLogFailure("response-redirect");
+        const executionContext = getExecutionContextAndLogFailure(
+          "response-redirect",
+        );
 
-        if (chain === undefined) {
+        if (executionContext?.chain === undefined) {
           throw new Error("Could not find chain");
         }
 
+        const { chain } = executionContext;
         const newURL = new URL(url, chain.request.url);
 
         return rawRedirect(newURL, status);

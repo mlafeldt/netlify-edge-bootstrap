@@ -1,6 +1,5 @@
 import { EdgeFunction } from "./edge_function.ts";
 import { RequestInvocationMetadata } from "./invocation_metadata.ts";
-import { StructuredLogger } from "./log/logger.ts";
 import type { Functions } from "./stage_2.ts";
 
 interface FunctionConfig {
@@ -46,7 +45,6 @@ export class Router {
   constructor(
     functions: Functions,
     metadata: RequestInvocationMetadata,
-    logger: StructuredLogger,
   ) {
     const rawConfig = metadata.function_config ?? {};
     const functionsWithConfig = new Map<string, FunctionWithConfig>();
@@ -88,10 +86,6 @@ export class Router {
           (typeof onError === "string" && onError.startsWith("/"))
         ) {
           config.onError = onError;
-        } else {
-          logger.withFields({ onError }).log(
-            "Found unexpected value for 'on_error' property",
-          );
         }
       }
 

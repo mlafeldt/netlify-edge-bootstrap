@@ -7,6 +7,7 @@ import {
 import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
+import { rawConsole } from "./log/logger.ts";
 import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import {
   hasMutatedHeaders,
@@ -38,8 +39,8 @@ import {
   UnretriableError,
   UserError,
 } from "./util/errors.ts";
+import { executionStore } from "./util/execution_context.ts";
 import { isRedirect } from "./util/redirect.ts";
-import { callWithExecutionContext } from "./util/execution_context.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -144,8 +145,17 @@ class FunctionChain {
           : "Retrying edge function request to origin",
       );
 
+      const signal = AbortSignal.any([
+        originReq.signal,
+        this.executionController.signal,
+      ]);
+      const call = this.metrics.startPassthrough();
+
       try {
-        return await fetch(originReq, { redirect: "manual" });
+        return await fetch(originReq, {
+          redirect: "manual",
+          signal,
+        });
       } catch (error: any) {
         const isStreamError = error.name === "TypeError" &&
           (error.message === "Failed to fetch: request body stream errored" ||
@@ -169,6 +179,8 @@ class FunctionChain {
         const canRetry = !originReq.bodyUsed && error.name !== "AbortError";
 
         throw canRetry ? error : new UnretriableError(error);
+      } finally {
+        call.end();
       }
     });
 
@@ -181,7 +193,7 @@ class FunctionChain {
         origin_status: res.status,
         origin_url: url,
       })
-      .withRequestID(getRequestID(this.request))
+      .withRequestID(this.requestID)
       .debug(
         "Finished edge function request to origin",
       );
@@ -246,7 +258,7 @@ class FunctionChain {
       get params() {
         return getPathParameters(route?.path, url);
       },
-      requestId: getRequestID(this.request),
+      requestId: this.requestID,
       rewrite: this.rewrite.bind(this),
       site: getSite(this.request),
       account: getAccount(this.request),
@@ -290,7 +302,8 @@ class FunctionChain {
         logger,
         data,
         functionName,
-        getRequestID(this.request),
+        this.requestID,
+        this,
       );
     };
   }
@@ -314,6 +327,10 @@ class FunctionChain {
     }
 
     return new URL(urlPath);
+  }
+
+  get requestID() {
+    return getRequestID(this.request);
   }
 
   rewrite(url: string | URL) {
@@ -409,6 +426,7 @@ class FunctionChain {
     const func = this.getFunction(functionIndex);
     const logger = this.logger.withFields({
       functionIndex,
+      url: this.request.url,
     });
 
     // We got to the end of the chain and the last function has early-returned.
@@ -470,11 +488,10 @@ class FunctionChain {
     try {
       // Wrap the function call with the execution context, so that we can find
       // the request context from any scope. Uses Node's `AsyncLocalStorage`.
-      const result = await callWithExecutionContext(
+      const result = await executionStore.run(
         {
-          context,
-          functionName: name,
-          requestID: getRequestID(this.request),
+          chain: this,
+          functionIndex,
         },
         () => source(this.request, context) as unknown,
       );
@@ -599,14 +616,14 @@ class FunctionChain {
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
       if (!supportsFailureModes || config.onError === OnError.Fail) {
-        context.log(error);
+        rawConsole.error(error);
 
         throw error;
       }
 
       // In the "bypass" failure mode, we run the next function in the chain.
       if (config.onError === OnError.Bypass) {
-        context.log(error);
+        rawConsole.error(error);
 
         return this.runFunction({
           functionIndex: functionIndex + 1,
@@ -623,7 +640,7 @@ class FunctionChain {
         throw error;
       }
 
-      context.log(error);
+      rawConsole.error(error);
 
       // Otherwise, return a bypass response with the new URL.
       const url = new URL(config.onError, this.request.url);

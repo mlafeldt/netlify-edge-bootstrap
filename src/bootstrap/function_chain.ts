@@ -7,7 +7,7 @@ import {
 import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
-import { rawConsole } from "./log/logger.ts";
+import { instrumentedConsole } from "./log/logger.ts";
 import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import {
   hasMutatedHeaders,
@@ -301,9 +301,7 @@ class FunctionChain {
       return instrumentedLog(
         logger,
         data,
-        functionName,
-        this.requestID,
-        this,
+        { chain: this, functionName, requestID: this.requestID },
       );
     };
   }
@@ -609,6 +607,11 @@ class FunctionChain {
         this.request,
         FeatureFlag.FailureModes,
       );
+      const errorMetadata = {
+        chain: this,
+        functionName: name,
+        requestID: this.requestID,
+      };
 
       logger.withFields({ supportsFailureModes, onError: config.onError })
         .debug("Function has thrown an error");
@@ -616,14 +619,14 @@ class FunctionChain {
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
       if (!supportsFailureModes || config.onError === OnError.Fail) {
-        rawConsole.error(error);
+        instrumentedConsole.error(errorMetadata, error);
 
         throw error;
       }
 
       // In the "bypass" failure mode, we run the next function in the chain.
       if (config.onError === OnError.Bypass) {
-        rawConsole.error(error);
+        instrumentedConsole.error(errorMetadata, error);
 
         return this.runFunction({
           functionIndex: functionIndex + 1,
@@ -640,7 +643,7 @@ class FunctionChain {
         throw error;
       }
 
-      rawConsole.error(error);
+      instrumentedConsole.error(errorMetadata, error);
 
       // Otherwise, return a bypass response with the new URL.
       const url = new URL(config.onError, this.request.url);

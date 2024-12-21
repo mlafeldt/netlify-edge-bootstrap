@@ -3,13 +3,31 @@ import {
   LogLevel,
   StructuredLogger,
 } from "../../vendor/v1-7-0--edge-utils.netlify.app/logger/mod.ts";
-import { instrumentedLog } from "./instrumented_log.ts";
+import {
+  instrumentedLog,
+  type InstrumentedLogMetadata,
+} from "./instrumented_log.ts";
 
-const rawConsole = globalThis.console;
+// A reference to the original console methods that will not go through the
+// request tracking logic. We want to use these for log lines emitted by the
+// bootstrap layer, leaving the patched methods for user code.
+const rawConsole = {
+  error: globalThis.console.error,
+  log: globalThis.console.log,
+};
 
-// An instance of `StructuredLogger` that uses an unpatched `console.log`. In
-// practice, this makes it detached from the context-tracking logic, and can
-// be used in situations where tracking the context is not necessary.
+// A set of console methods that emit instrumented log lines (i.e. annotated
+// with metadata about the request) using the raw console methods.
+export const instrumentedConsole = {
+  // deno-lint-ignore no-explicit-any
+  error: (metadata: InstrumentedLogMetadata, ...data: any[]) =>
+    instrumentedLog(rawConsole.error, data, metadata),
+  // deno-lint-ignore no-explicit-any
+  log: (metadata: InstrumentedLogMetadata, ...data: any[]) =>
+    instrumentedLog(rawConsole.log, data, metadata),
+};
+
+// A system logger that the raw console methods.
 const detachedLogger = logger.withRawLogger((...data) =>
   instrumentedLog(rawConsole.log, data)
 );

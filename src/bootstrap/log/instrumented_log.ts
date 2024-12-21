@@ -6,6 +6,12 @@ import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 
 type LogType = "systemJSON";
 
+export interface InstrumentedLogMetadata {
+  chain?: FunctionChain;
+  functionName?: string;
+  requestID?: string;
+}
+
 export interface NetlifyMetadata {
   edgeFunctionName?: string;
   requestID?: string;
@@ -17,14 +23,32 @@ const isStructuredLogger = (logger: any): logger is StructuredLogger => {
   return Boolean(logger?.__netlifyStructuredLogger);
 };
 
+export interface InstrumentedLogMetadata {
+  chain?: FunctionChain;
+  functionName?: string;
+  requestID?: string;
+}
+
+/**
+ * Emits a log line annotated with a metadata object. It can be used for both
+ * user-facing logs, in which case the metadata object contains information
+ * about the function and the request that originated the log, but also for
+ * system logs, which will have additional annotations that tell our services
+ * to treat the log as internal.
+ *
+ * @param logger Function that emits the final log output (e.g. `console.log`)
+ * @param data Data to be logged
+ * @param functionName Name of the function that originated the log
+ * @param requestID ID of the request that originated the log
+ * @param chain Function chain associated with the request
+ */
 export const instrumentedLog = (
   logger: Logger,
   data: unknown[],
-  functionName?: string,
-  requestID?: string,
-  chain?: FunctionChain,
+  metadata?: InstrumentedLogMetadata,
 ) => {
   const environment = getEnvironment();
+  const { chain, functionName, requestID } = metadata ?? {};
 
   if (environment === "production") {
     const metadata: NetlifyMetadata = {
@@ -32,6 +56,8 @@ export const instrumentedLog = (
       requestID: requestID,
     };
 
+    // If the input is a `StructuredLogger` instance, we know we're dealing
+    // with a system log, so we add the right metadata object to the payload.
     if (isStructuredLogger(data[0])) {
       const { fields, message, requestID } = data[0].serialize();
 
@@ -49,6 +75,8 @@ export const instrumentedLog = (
       data = [JSON.stringify(payload)];
     }
 
+    // If we have an associated function chain, add the request URL to the
+    // metadata object.
     if (chain) {
       const url = new URL(chain.request.url);
 
@@ -96,9 +124,11 @@ export const patchLogger = (logger: Logger) => {
       return instrumentedLog(
         logger,
         data,
-        executionContext?.functionName,
-        executionContext?.requestID,
-        executionContext?.chain,
+        {
+          chain: executionContext?.chain,
+          functionName: executionContext?.functionName,
+          requestID: executionContext?.requestID,
+        },
       );
     } catch {
       logger(...data);

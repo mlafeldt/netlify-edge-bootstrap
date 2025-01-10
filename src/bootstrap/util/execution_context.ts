@@ -5,6 +5,7 @@ import type {
   FunctionChain,
 } from "../function_chain.ts";
 import { detachedLogger } from "../log/logger.ts";
+import { StackTracer } from "./stack_tracer.ts";
 
 export const executionStore = new AsyncLocalStorage<{
   chain: FunctionChain;
@@ -37,19 +38,24 @@ export interface ExecutionContext {
 
 // To reduce log volume, we use this to keep track of the times we've failed to
 // find the execution context for each usage type.
-const loggedFailureTypes = new Set<string>();
+export const loggedFailureTypes = new Set<string>();
 
 export const getExecutionContextAndLogFailure = (type: string) => {
   const executionContext = getExecutionContext();
 
   if (!executionContext && !loggedFailureTypes.has(type)) {
-    loggedFailureTypes.add(type);
+    const { capped, inHandler } = StackTracer.capture();
 
-    detachedLogger.withFields({
-      stack: new Error().stack,
-      type,
-    })
-      .error("could not find execution context for request correlation");
+    if (capped || inHandler) {
+      loggedFailureTypes.add(type);
+
+      detachedLogger.withFields({
+        capped_stack_trace: capped,
+        type,
+      }).error(
+        "could not find execution context for request correlation",
+      );
+    }
   }
 
   return executionContext;

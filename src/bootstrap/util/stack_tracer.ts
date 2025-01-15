@@ -3,13 +3,23 @@ import {
   resolve,
 } from "../../vendor/deno.land/std@0.170.0/path/mod.ts";
 
+import { detachedLogger } from "../log/logger.ts";
+
 const depth = Symbol("depth");
 const inHandler = Symbol("inHandler");
 
-const filename = fromFileUrl(import.meta.url);
+let filename: string | undefined;
+
+try {
+  filename = fromFileUrl(import.meta.url);
+} catch (error) {
+  detachedLogger.withError(error).error(
+    "Failed to set up stack tracer: could not extract filename from `import.meta.url`",
+  );
+}
 
 // Relative path from this file to `function_chain.ts`.
-const functionChainPath = resolve(filename, "..", "..", "function_chain.ts");
+const FUNCTION_CHAIN_PATH = ["..", "..", "function_chain.ts"];
 
 // The name of a method inside `function_chain.ts` that is called whenever a
 // function is invoked. It's used as a marker to ascertain whether a given call
@@ -41,9 +51,13 @@ export class StackTracer extends OriginalError {
     OriginalError.prepareStackTrace = (_, callSites) => {
       this[depth] = callSites.length;
 
+      const functionChainFilePath = filename
+        ? resolve(filename, ...FUNCTION_CHAIN_PATH)
+        : undefined;
+
       for (const callSite of callSites) {
         if (
-          callSite.getFileName() === functionChainPath &&
+          callSite.getFileName() === functionChainFilePath &&
           callSite.getFunctionName() === MARKER_FUNCTION_NAME
         ) {
           this[inHandler] = true;

@@ -130,8 +130,16 @@ export const handleRequest = async (
       }
     }
 
-    const functionNames = functionNamesHeader.split(",");
     const edgeReq = new EdgeRequest(new Request(url, req));
+
+    let functionNames = functionNamesHeader.split(",");
+
+    // We don't want to run the same function multiple times in the same chain,
+    // so we deduplicate the function names while preserving their order.
+    if (hasFlag(edgeReq, FeatureFlag.DedupeFunctions)) {
+      functionNames = [...new Set(functionNames)];
+    }
+
     const chain = new FunctionChain({
       functionNames,
       initialMetrics: metrics,

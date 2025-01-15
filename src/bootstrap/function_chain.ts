@@ -245,7 +245,10 @@ class FunctionChain {
         reqOrOptions?: Request | NextOptions,
         options: NextOptions = {},
       ) => {
-        this.logger.withFields({ functionIndex }).debug(
+        this.logger.withFields({
+          functionIndex,
+          functionName: this.functionNames[functionIndex],
+        }).debug(
           "Function called `context.next()`",
         );
 
@@ -424,6 +427,7 @@ class FunctionChain {
     const func = this.getFunction(functionIndex);
     const logger = this.logger.withFields({
       functionIndex,
+      functionName: func?.name,
       url: this.request.url,
     });
 

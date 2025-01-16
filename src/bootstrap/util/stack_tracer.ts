@@ -8,16 +8,6 @@ import { detachedLogger } from "../log/logger.ts";
 const depth = Symbol("depth");
 const inHandler = Symbol("inHandler");
 
-let filename: string | undefined;
-
-try {
-  filename = fromFileUrl(import.meta.url);
-} catch (error) {
-  detachedLogger.withError(error).error(
-    "Failed to set up stack tracer: could not extract filename from `import.meta.url`",
-  );
-}
-
 // Relative path from this file to `function_chain.ts`.
 const FUNCTION_CHAIN_PATH = ["..", "..", "function_chain.ts"];
 
@@ -40,7 +30,7 @@ export class StackTracer extends OriginalError {
   [depth]: number;
   [inHandler]: boolean;
 
-  constructor() {
+  constructor(functionChainPath: string) {
     OriginalError.stackTraceLimit = STACK_TRACE_LIMIT;
 
     super();
@@ -51,13 +41,9 @@ export class StackTracer extends OriginalError {
     OriginalError.prepareStackTrace = (_, callSites) => {
       this[depth] = callSites.length;
 
-      const functionChainFilePath = filename
-        ? resolve(filename, ...FUNCTION_CHAIN_PATH)
-        : undefined;
-
       for (const callSite of callSites) {
         if (
-          callSite.getFileName() === functionChainFilePath &&
+          callSite.getFileName() === functionChainPath &&
           callSite.getFunctionName() === MARKER_FUNCTION_NAME
         ) {
           this[inHandler] = true;
@@ -77,11 +63,20 @@ export class StackTracer extends OriginalError {
     const stackTraceLimit = OriginalError.stackTraceLimit;
 
     try {
-      const stackTracer = new StackTracer();
+      const filename = fromFileUrl(import.meta.url);
+      const functionChainPath = resolve(filename, ...FUNCTION_CHAIN_PATH);
+      const stackTracer = new StackTracer(functionChainPath);
 
       return {
         capped: stackTracer[depth] >= STACK_TRACE_LIMIT,
         inHandler: stackTracer[inHandler],
+      };
+    } catch (error) {
+      detachedLogger.withError(error).error("Failed to set up stack tracer");
+
+      return {
+        capped: false,
+        inHandler: false,
       };
     } finally {
       OriginalError.prepareStackTrace = prepareStackTrace;

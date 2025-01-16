@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 
+import { getEnvironment } from "../environment.ts";
 import type {
   Context as FunctionContext,
   FunctionChain,
@@ -43,7 +44,10 @@ export const loggedFailureTypes = new Set<string>();
 export const getExecutionContextAndLogFailure = (type: string) => {
   const executionContext = getExecutionContext();
 
-  if (!executionContext && !loggedFailureTypes.has(type)) {
+  if (
+    !executionContext && !loggedFailureTypes.has(type) &&
+    getEnvironment() === "production"
+  ) {
     const { capped, inHandler } = StackTracer.capture();
 
     if (capped || inHandler) {

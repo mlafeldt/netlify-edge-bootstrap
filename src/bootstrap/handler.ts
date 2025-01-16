@@ -1,4 +1,3 @@
-import { isCacheable } from "./cache.ts";
 import {
   FeatureFlag,
   hasFlag,
@@ -182,20 +181,6 @@ export const handleRequest = async (
     reqLogger
       .withFields({ ef_duration: endTime - startTime })
       .debug("Finished processing edge function request");
-
-    const cacheControl = response.headers.get(StandardHeaders.CacheControl);
-
-    if (
-      hasFlag(edgeReq, FeatureFlag.LogCacheControl) &&
-      isCacheable(cacheControl)
-    ) {
-      reqLogger
-        .withFields({
-          cache_control: cacheControl,
-          mode: getCacheMode(edgeReq),
-        })
-        .debug("Edge function returned cacheable cache-control headers");
-    }
 
     return mutateHeaders(response, (headers) => {
       // An issue with `Deno.serve` body compression is causing browsers to

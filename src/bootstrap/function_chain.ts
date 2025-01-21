@@ -8,7 +8,6 @@ import type { Context, NextOptions } from "./context.ts";
 import { CookieStore } from "./cookie_store.ts";
 import { instrumentedLog, Logger } from "./log/instrumented_log.ts";
 import { instrumentedConsole } from "./log/logger.ts";
-import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import {
   hasMutatedHeaders,
   mutateHeaders,
@@ -607,22 +606,18 @@ class FunctionChain {
         `Function '${name}' returned an unsupported value. Accepted types are 'Response', 'URL' or 'undefined'`,
       );
     } catch (error) {
-      const supportsFailureModes = hasFlag(
-        this.request,
-        FeatureFlag.FailureModes,
-      );
       const errorMetadata = {
         chain: this,
         functionName: name,
         requestID: this.requestID,
       };
 
-      logger.withFields({ supportsFailureModes, onError: config.onError })
+      logger.withFields({ onError: config.onError })
         .debug("Function has thrown an error");
 
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
-      if (!supportsFailureModes || config.onError === OnError.Fail) {
+      if (config.onError === OnError.Fail) {
         instrumentedConsole.error(errorMetadata, error);
 
         throw error;

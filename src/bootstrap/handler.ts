@@ -15,12 +15,7 @@ import {
 } from "./request.ts";
 import { getEnvironment, populateEnvironment } from "./environment.ts";
 import { Netlify } from "./globals/implementation.ts";
-import {
-  ensureNoTransform,
-  InternalHeaders,
-  mutateHeaders,
-  StandardHeaders,
-} from "./headers.ts";
+import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
 import { RequestMetrics } from "./metrics.ts";
 import { Router } from "./router.ts";
@@ -35,6 +30,25 @@ interface HandleRequestOptions {
 }
 
 globalThis.Netlify = Netlify;
+
+// There is an issue in Deno where a cancellation of a client request leads to
+// an exception that cannot be caught. This is a problem because the isolate
+// will crash and will fail to serve normal requests. This handler checks for
+// that case and stops the crash.
+// https://github.com/denoland/deno/issues/27715
+globalThis.addEventListener("unhandledrejection", (event) => {
+  if (
+    event.reason instanceof DOMException && event.reason.name === "AbortError"
+  ) {
+    detachedLogger.withError(event.reason).debug(
+      "found unhandled AbortError exception",
+    );
+
+    event.preventDefault();
+
+    return;
+  }
+});
 
 export const handleRequest = async (
   req: Request,
@@ -154,9 +168,7 @@ export const handleRequest = async (
       url: req.url,
     });
 
-    if (hasFlag(edgeReq, FeatureFlag.PopulateEnvironment)) {
-      populateEnvironment(edgeReq);
-    }
+    populateEnvironment(edgeReq);
 
     reqLogger
       .debug("Started processing edge function request");
@@ -183,18 +195,6 @@ export const handleRequest = async (
       .debug("Finished processing edge function request");
 
     return mutateHeaders(response, (headers) => {
-      // An issue with `Deno.serve` body compression is causing browsers to
-      // buffer responses that should be streamed. As a temporary workaround,
-      // we ensure that the response has `cache-control: no-transform`.
-      // TODO: Remove once this issue has been fixed:
-      // https://github.com/denoland/netlify-support/issues/10
-      if (
-        environment === "local" ||
-        hasFlag(edgeReq, FeatureFlag.ForceNoTransform)
-      ) {
-        ensureNoTransform(headers);
-      }
-
       metrics.writeHeaders(headers);
     });
   } catch (error) {

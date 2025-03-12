@@ -28,6 +28,8 @@ interface EdgeRequestInternals {
   account: Account;
   blobs: BlobsMetadata;
   bypassSettings: string | null;
+  cacheAPIURL: string | null;
+  cacheAPIToken: string | null;
   cacheMode: string | null;
   cdnLoop: string | null;
   deploy: Deploy;
@@ -59,6 +61,8 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     ),
     blobs: parseBlobsMetadata(headers.get(InternalHeaders.BlobsInfo)),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
+    cacheAPIURL: headers.get(InternalHeaders.CacheAPIURL),
+    cacheAPIToken: headers.get(InternalHeaders.CacheAPIToken),
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
     cdnLoop: headers.get(StandardHeaders.CDNLoop),
     deploy,
@@ -104,6 +108,8 @@ export class EdgeRequest extends Request {
 
     [
       InternalHeaders.AccountInfo,
+      InternalHeaders.CacheAPIToken,
+      InternalHeaders.CacheAPIURL,
       InternalHeaders.ForwardedHost,
       InternalHeaders.ForwardedProtocol,
       InternalHeaders.Geo,
@@ -129,6 +135,12 @@ export const getAccount = (request: EdgeRequest) =>
 
 export const getBlobs = (request: EdgeRequest) =>
   request[internalsSymbol].blobs;
+
+export const getCacheAPIURL = (request: EdgeRequest) =>
+  request[internalsSymbol].cacheAPIURL;
+
+export const getCacheAPIToken = (request: EdgeRequest) =>
+  request[internalsSymbol].cacheAPIToken;
 
 export const getCacheMode = (request: EdgeRequest) =>
   request[internalsSymbol].cacheMode === CacheMode.Manual

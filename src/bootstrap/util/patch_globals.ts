@@ -1,4 +1,6 @@
+import { getNetlifyCacheStorage } from "../cache.ts";
 import { patchDenoFS } from "../deno-fs.ts";
+import { getEnvironment } from "../environment.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
 import { patchFetchToTrackSubrequests } from "../util/fetch.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
@@ -67,4 +69,16 @@ export const patchGlobals = () => {
 
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
+};
+
+let hasPatchedCaches = false;
+
+export const patchCaches = () => {
+  if (hasPatchedCaches || getEnvironment() !== "production") {
+    return;
+  }
+
+  hasPatchedCaches = true;
+
+  globalThis.caches = getNetlifyCacheStorage();
 };

@@ -1,5 +1,7 @@
 export enum InternalHeaders {
   BlobsInfo = "x-nf-blobs-info",
+  CacheAPIToken = "x-nf-pc-token",
+  CacheAPIURL = "x-nf-pc-url",
   Country = "x-country",
   DeployID = "x-nf-deploy-id",
   DeployContext = "x-nf-deploy-context",

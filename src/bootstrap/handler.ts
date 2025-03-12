@@ -21,6 +21,7 @@ import { RequestMetrics } from "./metrics.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
 import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
+import { patchCaches } from "./util/patch_globals.ts";
 import "./globals/types.ts";
 
 interface HandleRequestOptions {
@@ -68,6 +69,10 @@ export const handleRequest = async (
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
+
+  if (featureFlags[FeatureFlag.CacheAPI]) {
+    patchCaches();
+  }
 
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.

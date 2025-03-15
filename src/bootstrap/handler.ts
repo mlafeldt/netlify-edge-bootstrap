@@ -8,6 +8,7 @@ import { Logger } from "./log/instrumented_log.ts";
 import { detachedLogger } from "./log/logger.ts";
 import {
   EdgeRequest,
+  getCacheAPIToken,
   getCacheMode,
   getFeatureFlags,
   getLogger,
@@ -69,10 +70,6 @@ export const handleRequest = async (
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
-
-  if (featureFlags[FeatureFlag.CacheAPI]) {
-    patchCaches();
-  }
 
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.
@@ -149,6 +146,12 @@ export const handleRequest = async (
     }
 
     const edgeReq = new EdgeRequest(new Request(url, req));
+
+    // TODO: Once the Cache API has been fully rolled out, remove this call and
+    // let `patchGlobals` handle this.
+    if (getCacheAPIToken(edgeReq)) {
+      patchCaches();
+    }
 
     let functionNames = functionNamesHeader.split(",");
 

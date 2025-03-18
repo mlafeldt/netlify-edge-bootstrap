@@ -3,6 +3,7 @@ import {
   NetlifyCacheStorage,
 } from "../vendor/esm.sh/@netlify/cache@1.3.0/denonext/bootstrap.mjs";
 
+import { detachedLogger } from "./log/logger.ts";
 import { getCacheAPIToken, getCacheAPIURL } from "./request.ts";
 import { getExecutionContextAndLogFailure } from "./util/execution_context.ts";
 
@@ -31,6 +32,11 @@ export const getNetlifyCacheStorage = () =>
       const url = getCacheAPIURL(request);
 
       if (!token || !url) {
+        detachedLogger.withFields({
+          has_token: Boolean(token),
+          has_url: Boolean(url),
+        }).log("missing Cache API metadata in request");
+
         throw misconfiguredEnvironmentError;
       }
 

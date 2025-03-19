@@ -9,6 +9,7 @@ import { detachedLogger } from "./log/logger.ts";
 import {
   EdgeRequest,
   getCacheAPIToken,
+  getCacheAPIURL,
   getCacheMode,
   getFeatureFlags,
   getLogger,
@@ -146,10 +147,12 @@ export const handleRequest = async (
     }
 
     const edgeReq = new EdgeRequest(new Request(url, req));
+    const cacheAPIToken = getCacheAPIToken(edgeReq);
+    const cacheAPIURL = getCacheAPIURL(edgeReq);
 
     // TODO: Once the Cache API has been fully rolled out, remove this call and
     // let `patchGlobals` handle this.
-    if (getCacheAPIToken(edgeReq)) {
+    if (cacheAPIToken && cacheAPIURL) {
       patchCaches();
     }
 
@@ -179,6 +182,10 @@ export const handleRequest = async (
     populateEnvironment(edgeReq);
 
     reqLogger
+      .withFields({
+        cache_api_token: Boolean(cacheAPIToken),
+        cache_api_url: Boolean(cacheAPIURL),
+      })
       .debug("Started processing edge function request");
 
     const startTime = performance.now();

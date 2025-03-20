@@ -22,9 +22,22 @@ const MARKER_FUNCTION_NAME = "runFunction";
 // lose some information and therefore we may get a false negative.
 const STACK_TRACE_LIMIT = 50;
 
+interface CallSite {
+  getFunctionName(): string | null;
+  getFileName(): string | undefined;
+}
+
+// temporary interface extension whilst we wait for https://github.com/denoland/deno/pull/28539/
+interface ErrorWithStackTraceLimit extends ErrorConstructor {
+  stackTraceLimit: number;
+  prepareStackTrace?:
+    | ((err: Error, stackTraces: CallSite[]) => any)
+    | undefined;
+}
+
 // Capturing a reference to the original `Error` global in case it gets mutated
 // by user code.
-const OriginalError = globalThis.Error;
+const OriginalError = globalThis.Error as ErrorWithStackTraceLimit;
 
 export class StackTracer extends OriginalError {
   [depth]: number;

@@ -5,7 +5,6 @@ import type { Context } from "../context.ts";
 declare global {
   // Using `var` so that the declaration is hoisted in such a way that we can
   // reference it before it's initialized.
-  // deno-lint-ignore no-var
   var Netlify: NetlifyGlobal;
 }
 

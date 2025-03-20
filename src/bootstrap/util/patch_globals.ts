@@ -74,11 +74,17 @@ export const patchGlobals = () => {
 let hasPatchedCaches = false;
 
 export const patchCaches = () => {
-  if (hasPatchedCaches || getEnvironment() !== "production") {
+  if (hasPatchedCaches) {
     return;
   }
 
   hasPatchedCaches = true;
+
+  if (globalThis.caches) {
+    // @ts-expect-error This is the only way to set `globalThis.caches`, even
+    // though it's against the type definition.
+    delete globalThis.caches;
+  }
 
   globalThis.caches = getNetlifyCacheStorage();
 };

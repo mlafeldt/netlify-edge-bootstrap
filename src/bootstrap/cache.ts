@@ -1,32 +1,53 @@
 import * as base64 from "../vendor/deno.land/std@0.170.0/encoding/base64.ts";
+
+// @ts-types="../vendor/esm.sh/@netlify/cache@1.7.1/dist/bootstrap/main.d.ts"
 import {
   NetlifyCacheStorage,
-} from "../vendor/esm.sh/@netlify/cache@1.3.0/denonext/bootstrap.mjs";
+  Operation as CacheAPIOperation,
+} from "../vendor/esm.sh/@netlify/cache@1.7.1/denonext/dist/bootstrap/main.mjs";
 
-import { detachedLogger } from "./log/logger.ts";
+import { detachedLogger, rawConsole } from "./log/logger.ts";
+import { Operations } from "./operation_counter.ts";
 import { getCacheAPIToken, getCacheAPIURL } from "./request.ts";
+import { UserError } from "./util/errors.ts";
 import { getExecutionContextAndLogFailure } from "./util/execution_context.ts";
 
 // Keep this in sync with the `@netlify/cache` import above.
-export const CACHE_PACKAGE_VERSION = "1.3.0";
+export const CACHE_PACKAGE_VERSION = "1.7.1";
 
-const misconfiguredEnvironmentError = new Error(
-  "The Cache API is not configured on this environment. Refer to https://ntl.fyi/ef-configure-cache for more information.",
-);
+export { CacheAPIOperation };
 
 export const getNetlifyCacheStorage = () =>
   new NetlifyCacheStorage({
     base64Encode: base64.encode,
-    getContext: () => {
+    getContext: ({ operation: cacheAPIOperation }) => {
       const executionContext = getExecutionContextAndLogFailure(
         "cache-api",
       );
-      const request = executionContext?.chain.request;
+      const chain = executionContext?.chain;
 
-      if (!request) {
-        throw misconfiguredEnvironmentError;
+      if (!chain?.request) {
+        throw new UserError(
+          "The Cache API must be used within the scope of the request handler. Refer to https://ntl.fyi/cache-api-scope for more information.",
+        );
+      }
+      const operation = (cacheAPIOperation === CacheAPIOperation.Delete ||
+          cacheAPIOperation === CacheAPIOperation.Write)
+        ? Operations.CacheAPIWrite
+        : Operations.CacheAPIRead;
+
+      const isAllowed = chain.operationCounter.register(operation);
+      if (!isAllowed) {
+        rawConsole.log(
+          `You've exceeded the number of allowed Cache API ${
+            operation === Operations.CacheAPIWrite ? "writes" : "reads"
+          } for a single invocation. Refer to https://ntl.fyi/cache-api-limits for more information.`,
+        );
+
+        return null;
       }
 
+      const { request } = chain;
       const host = new URL(request.url).hostname;
       const token = getCacheAPIToken(request);
       const url = getCacheAPIURL(request);
@@ -37,12 +58,13 @@ export const getNetlifyCacheStorage = () =>
           has_url: Boolean(url),
         }).log("missing Cache API metadata in request");
 
-        throw misconfiguredEnvironmentError;
+        return null;
       }
 
       const urlWithPath = new URL("/.netlify/cache", url);
 
       return {
+        logger: (message) => detachedLogger.log(message),
         host,
         url: urlWithPath.toString(),
         token,

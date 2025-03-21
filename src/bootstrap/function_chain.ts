@@ -14,7 +14,6 @@ import {
   StandardHeaders,
 } from "./headers.ts";
 import { RequestMetrics } from "./metrics.ts";
-import { OperationCounter } from "./operation_counter.ts";
 import { getPathParameters } from "./path_parameters.ts";
 import {
   CacheMode,
@@ -48,7 +47,6 @@ interface FunctionChainOptions {
   functionNames: string[];
   initialMetrics?: RequestMetrics;
   initialRequestURL?: URL;
-  operationCounter?: OperationCounter;
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
@@ -76,7 +74,6 @@ class FunctionChain {
   initialHeaders: Headers;
   initialRequestURL: URL;
   metrics: RequestMetrics;
-  operationCounter: OperationCounter;
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
@@ -104,7 +101,6 @@ class FunctionChain {
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
     this.metrics = new RequestMetrics(initialMetrics ?? parentChain?.metrics);
-    this.operationCounter = new OperationCounter();
     this.rawLogger = rawLogger;
     this.request = request;
     this.router = router;
@@ -561,7 +557,6 @@ class FunctionChain {
           executionController: this.executionController,
           functionNames: functions.map((route) => route.name),
           initialRequestURL: this.initialRequestURL,
-          operationCounter: this.operationCounter,
           rawLogger: this.rawLogger,
           request: newRequest,
           router: this.router,

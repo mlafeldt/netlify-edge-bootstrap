@@ -36,6 +36,7 @@ export enum InternalHeaders {
   PassthroughTiming = "x-nf-passthrough-timing",
   PurgeAPIToken = "x-nf-purge-api-token",
   FetchTiming = "x-nf-fetch-timing",
+  InvocationMetrics = "x-nf-invocation-metrics",
 }
 
 export enum StandardHeaders {

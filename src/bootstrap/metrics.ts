@@ -6,12 +6,32 @@ interface FetchCall {
   end?: number;
 }
 
+export enum Operations {
+  CacheAPIRead = "cache-api-read",
+  CacheAPIWrite = "cache-api-write",
+}
+
+export const LIMITS = {
+  [Operations.CacheAPIRead]: 100,
+  [Operations.CacheAPIWrite]: 20,
+};
+
 export class RequestMetrics {
+  private counts: Map<string, number>;
+  private limits: Record<string, number>;
   private fetchCalls: FetchCall[];
   private invokedFunctions: string[];
   private passthroughCalls: number[];
 
-  constructor(initialMetrics?: RequestMetrics) {
+  private id: number;
+
+  constructor(
+    initialMetrics?: RequestMetrics,
+    limits: Record<string, number> = LIMITS,
+  ) {
+    this.id = Math.random();
+    this.counts = initialMetrics?.counts ?? new Map();
+    this.limits = limits;
     this.fetchCalls = initialMetrics?.fetchCalls ?? [];
     this.invokedFunctions = initialMetrics?.invokedFunctions ?? [];
     this.passthroughCalls = initialMetrics?.passthroughCalls ?? [];
@@ -41,6 +61,18 @@ export class RequestMetrics {
     return { end };
   }
 
+  // Registers a generic operation and returns the allowance for this type of
+  // operation, including the one that is being registered. This means that
+  // if the return value is lower than 0, the operation will be blocked.
+  registerOperation(operation: Operations) {
+    const count = this.counts.get(operation) || 0;
+    const limit = this.limits[operation] || 0;
+
+    this.counts.set(operation, count + 1);
+
+    return limit - count;
+  }
+
   registerInvokedFunction(name: string) {
     this.invokedFunctions.push(name);
   }
@@ -68,5 +100,15 @@ export class RequestMetrics {
         `${id};dur=${RequestMetrics.formatDuration(duration)}`,
       );
     }
+
+    const cacheAPIOperations = [
+      Operations.CacheAPIRead,
+      Operations.CacheAPIWrite,
+    ].map((key) => `${key};count=${this.counts.get(key) ?? 0}`);
+
+    headers.set(
+      InternalHeaders.InvocationMetrics,
+      cacheAPIOperations.join(","),
+    );
   }
 }

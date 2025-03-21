@@ -7,7 +7,7 @@ import {
 } from "../vendor/esm.sh/@netlify/cache@1.7.1/denonext/dist/bootstrap/main.mjs";
 
 import { detachedLogger, rawConsole } from "./log/logger.ts";
-import { Operations } from "./operation_counter.ts";
+import { Operations } from "./metrics.ts";
 import { getCacheAPIToken, getCacheAPIURL } from "./request.ts";
 import { UserError } from "./util/errors.ts";
 import { getExecutionContextAndLogFailure } from "./util/execution_context.ts";
@@ -36,13 +36,20 @@ export const getNetlifyCacheStorage = () =>
         ? Operations.CacheAPIWrite
         : Operations.CacheAPIRead;
 
-      const isAllowed = chain.operationCounter.register(operation);
-      if (!isAllowed) {
-        rawConsole.log(
-          `You've exceeded the number of allowed Cache API ${
-            operation === Operations.CacheAPIWrite ? "writes" : "reads"
-          } for a single invocation. Refer to https://ntl.fyi/cache-api-limits for more information.`,
-        );
+      const allowance = chain.metrics.registerOperation(operation);
+
+      // If we don't have allowance to perform this operation, we return an
+      // empty context.
+      if (allowance <= 0) {
+        // To limit the log volume, we only log the first time that we go above
+        // the allowance for a given invocation.
+        if (allowance === 0) {
+          rawConsole.log(
+            `You've exceeded the number of allowed Cache API ${
+              operation === Operations.CacheAPIWrite ? "writes" : "reads"
+            } for a single invocation. Refer to https://ntl.fyi/cache-api-limits for more information.`,
+          );
+        }
 
         return null;
       }

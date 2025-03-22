@@ -2,7 +2,7 @@ import {
   logger,
   LogLevel,
   StructuredLogger,
-} from "../../vendor/v1-7-0--edge-utils.netlify.app/logger/mod.ts";
+} from "../../vendor/v1-8-0--edge-utils.netlify.app/logger/mod.ts";
 import {
   instrumentedLog,
   type InstrumentedLogMetadata,

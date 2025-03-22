@@ -7,8 +7,8 @@ interface FetchCall {
 }
 
 export enum Operations {
-  CacheAPIRead = "cache-api-read",
-  CacheAPIWrite = "cache-api-write",
+  CacheAPIRead = "efcar",
+  CacheAPIWrite = "efcaw",
 }
 
 export const LIMITS = {

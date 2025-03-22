@@ -71,7 +71,7 @@ export const getNetlifyCacheStorage = () =>
       const urlWithPath = new URL("/.netlify/cache", url);
 
       return {
-        logger: (message) => detachedLogger.log(message),
+        logger: (message) => chain.throttledLogger.log(message),
         host,
         url: urlWithPath.toString(),
         token,

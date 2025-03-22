@@ -47,6 +47,7 @@ interface FunctionChainOptions {
   functionNames: string[];
   initialMetrics?: RequestMetrics;
   initialRequestURL?: URL;
+  loggedMessages?: Set<string>;
   rawLogger: Logger;
   request: EdgeRequest;
   router: Router;
@@ -73,6 +74,7 @@ class FunctionChain {
   functionNames: string[];
   initialHeaders: Headers;
   initialRequestURL: URL;
+  loggedMessages: Set<string>;
   metrics: RequestMetrics;
   rawLogger: Logger;
   request: EdgeRequest;
@@ -87,6 +89,7 @@ class FunctionChain {
       functionNames,
       initialMetrics,
       initialRequestURL = new URL(request.url),
+      loggedMessages,
       rawLogger,
       router,
       timeoutSignal,
@@ -100,6 +103,7 @@ class FunctionChain {
     this.functionNames = functionNames;
     this.initialHeaders = new Headers(request.headers);
     this.initialRequestURL = initialRequestURL;
+    this.loggedMessages = loggedMessages ?? new Set();
     this.metrics = new RequestMetrics(initialMetrics ?? parentChain?.metrics);
     this.rawLogger = rawLogger;
     this.request = request;
@@ -308,8 +312,23 @@ class FunctionChain {
     };
   }
 
+  // Returns a system logger associated with this request.
   get logger() {
     return getLogger(this.request);
+  }
+
+  // Returns a system logger associated with this request with a filter that
+  // prevents the same message from being logged multiple times.
+  get throttledLogger() {
+    return getLogger(this.request).withFilter((message) => {
+      if (this.loggedMessages.has(message)) {
+        return false;
+      }
+
+      this.loggedMessages.add(message);
+
+      return true;
+    });
   }
 
   json(input: unknown, init?: ResponseInit) {

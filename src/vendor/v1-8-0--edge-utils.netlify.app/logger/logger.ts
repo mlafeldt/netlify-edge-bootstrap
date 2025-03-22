@@ -1,5 +1,10 @@
 type Logger = (...data: unknown[]) => void;
 
+export type Filter = (
+  mesage: string,
+  fields?: Record<string, unknown>,
+) => boolean;
+
 export enum LogLevel {
   Debug = 1,
   Log,
@@ -20,6 +25,7 @@ const serializeError = (error: Error): Record<string, unknown> => {
 
 export class StructuredLogger {
   private fields: Record<string, unknown>;
+  private filter?: Filter;
   private logLevel: LogLevel;
   private message: string;
   private rawLogger?: Logger;
@@ -32,7 +38,9 @@ export class StructuredLogger {
     requestID?: string,
     rawLogger?: Logger,
     logLevel?: LogLevel,
+    filter?: Filter,
   ) {
+    this.filter = filter;
     this.fields = fields ?? {};
     this.logLevel = logLevel ?? LogLevel.Log;
     this.message = message ?? "";
@@ -48,6 +56,10 @@ export class StructuredLogger {
       return;
     }
 
+    if (this.filter && !this.filter(message, this.fields)) {
+      return;
+    }
+
     const logger = this.rawLogger ?? globalThis.console.log;
 
     logger(
@@ -57,6 +69,7 @@ export class StructuredLogger {
         this.requestID,
         this.rawLogger,
         this.logLevel,
+        this.filter,
       ),
     );
   }
@@ -66,21 +79,7 @@ export class StructuredLogger {
       return;
     }
 
-    const logger = this.rawLogger ?? globalThis.console.log;
-
-    logger(
-      new StructuredLogger(
-        message,
-        this.fields,
-        this.requestID,
-        this.rawLogger,
-        this.logLevel,
-      ),
-    );
-  }
-
-  log(message: string) {
-    if (this.logLevel > LogLevel.Log) {
+    if (this.filter && !this.filter(message, this.fields)) {
       return;
     }
 
@@ -93,6 +92,30 @@ export class StructuredLogger {
         this.requestID,
         this.rawLogger,
         this.logLevel,
+        this.filter,
+      ),
+    );
+  }
+
+  log(message: string) {
+    if (this.logLevel > LogLevel.Log) {
+      return;
+    }
+
+    if (this.filter && !this.filter(message, this.fields)) {
+      return;
+    }
+
+    const logger = this.rawLogger ?? globalThis.console.log;
+
+    logger(
+      new StructuredLogger(
+        message,
+        this.fields,
+        this.requestID,
+        this.rawLogger,
+        this.logLevel,
+        this.filter,
       ),
     );
   }
@@ -123,6 +146,26 @@ export class StructuredLogger {
       this.requestID,
       this.rawLogger,
       this.logLevel,
+      this.filter,
+    );
+  }
+
+  withFilter(filter?: Filter) {
+    if (!filter) {
+      return this;
+    }
+
+    if (typeof filter !== "function") {
+      throw new TypeError("Filter must be a function");
+    }
+
+    return new StructuredLogger(
+      this.message,
+      this.fields,
+      this.requestID,
+      this.rawLogger,
+      this.logLevel,
+      filter,
     );
   }
 
@@ -133,6 +176,7 @@ export class StructuredLogger {
       this.requestID,
       this.rawLogger,
       logLevel,
+      this.filter,
     );
   }
 
@@ -143,6 +187,7 @@ export class StructuredLogger {
       this.requestID,
       logger,
       this.logLevel,
+      this.filter,
     );
   }
 
@@ -157,6 +202,7 @@ export class StructuredLogger {
       requestID,
       this.rawLogger,
       this.logLevel,
+      this.filter,
     );
   }
 }

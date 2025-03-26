@@ -40,6 +40,7 @@ import {
 } from "./util/errors.ts";
 import { executionStore } from "./util/execution_context.ts";
 import { isRedirect } from "./util/redirect.ts";
+import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -80,6 +81,7 @@ class FunctionChain {
   request: EdgeRequest;
   router: Router;
   timeoutSignal?: AbortSignal;
+  #cpuTimingPerFunction: boolean;
 
   constructor(
     {
@@ -109,6 +111,10 @@ class FunctionChain {
     this.request = request;
     this.router = router;
     this.timeoutSignal = timeoutSignal ?? parentChain?.timeoutSignal;
+    this.#cpuTimingPerFunction = hasFlag(
+      request,
+      FeatureFlag.CpuTimingPerFunction,
+    );
   }
 
   async fetchPassthrough(url?: URL) {
@@ -506,15 +512,41 @@ class FunctionChain {
     this.metrics.registerInvokedFunction(name);
 
     try {
-      // Wrap the function call with the execution context, so that we can find
-      // the request context from any scope. Uses Node's `AsyncLocalStorage`.
-      const result = await executionStore.run(
-        {
-          chain: this,
-          functionIndex,
-        },
-        () => source(this.request, context) as unknown,
-      );
+      let result;
+      if (this.#cpuTimingPerFunction) {
+        // Wrap the function call with the execution context, so that we can find
+        // the request context from any scope. Uses Node's `AsyncLocalStorage`.
+        // @ts-ignore: This method exists but is not included in the type definitions
+        const startUsage = Deno.cpuUsage();
+
+        result = await executionStore.run(
+          {
+            chain: this,
+            functionIndex,
+          },
+          () => source(this.request, context) as unknown,
+        );
+
+        // @ts-ignore: This method exists but is not included in the type definitions
+        const endUsage = Deno.cpuUsage();
+
+        const cpu = {
+          cpuUser: endUsage.user - startUsage.user,
+          cpuSystem: endUsage.system - startUsage.system,
+        };
+
+        logger.withFields(cpu).log(
+          "Function executed successfully",
+        );
+      } else {
+        result = await executionStore.run(
+          {
+            chain: this,
+            functionIndex,
+          },
+          () => source(this.request, context) as unknown,
+        );
+      }
 
       // If the function returned a URL object, it means a rewrite.
       if (result instanceof URL) {

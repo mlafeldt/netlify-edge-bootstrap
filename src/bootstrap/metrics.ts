@@ -21,6 +21,10 @@ export class RequestMetrics {
   private limits: Record<string, number>;
   private fetchCalls: FetchCall[];
   private invokedFunctions: string[];
+  private invokedFunctionTimings: Map<number, {
+    user: number;
+    system: number;
+  }>;
   private passthroughCalls: number[];
 
   private id: number;
@@ -34,6 +38,8 @@ export class RequestMetrics {
     this.limits = limits;
     this.fetchCalls = initialMetrics?.fetchCalls ?? [];
     this.invokedFunctions = initialMetrics?.invokedFunctions ?? [];
+    this.invokedFunctionTimings = initialMetrics?.invokedFunctionTimings ??
+      new Map();
     this.passthroughCalls = initialMetrics?.passthroughCalls ?? [];
   }
 
@@ -77,6 +83,28 @@ export class RequestMetrics {
     this.invokedFunctions.push(name);
   }
 
+  startInvokedFunctionTiming(
+    functionIndex: number,
+    enabled: boolean,
+  ) {
+    if (!enabled) {
+      return () => {};
+    }
+
+    // @ts-ignore: This method exists but is not included in the type definitions
+    const startUsage = Deno.cpuUsage();
+
+    return () => {
+      // @ts-ignore: This method exists but is not included in the type definitions
+      const endUsage = Deno.cpuUsage();
+      const cpu = {
+        user: endUsage.user - startUsage.user,
+        system: endUsage.system - startUsage.system,
+      };
+      this.invokedFunctionTimings.set(functionIndex, cpu);
+    };
+  }
+
   startFetch(host: string) {
     return this.trackFetchCall(host);
   }
@@ -90,6 +118,19 @@ export class RequestMetrics {
       InternalHeaders.EdgeFunctions,
       this.invokedFunctions.join(","),
     );
+
+    for (
+      const [functionIndex, { user, system }] of this.invokedFunctionTimings
+    ) {
+      headers.append(
+        InternalHeaders.EdgeFunctionTimings,
+        `${functionIndex}-user;dur=${user}`,
+      );
+      headers.append(
+        InternalHeaders.EdgeFunctionTimings,
+        `${functionIndex}-system;dur=${system}`,
+      );
+    }
 
     for (const call of this.fetchCalls) {
       const id = call.host ? `host=${call.host}` : "passthrough";

@@ -12,6 +12,7 @@ export enum InternalHeaders {
   ForwardedHost = "x-forwarded-host",
   ForwardedProtocol = "x-forwarded-proto",
   EdgeFunctions = "x-nf-edge-functions",
+  EdgeFunctionTimings = "x-nf-edge-function-timings",
   Passthrough = "x-nf-passthrough",
   PassthroughHost = "x-nf-passthrough-host",
   PassthroughProtocol = "x-nf-passthrough-proto",

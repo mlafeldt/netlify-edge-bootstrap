@@ -40,7 +40,6 @@ import {
 } from "./util/errors.ts";
 import { executionStore } from "./util/execution_context.ts";
 import { isRedirect } from "./util/redirect.ts";
-import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -68,20 +67,19 @@ interface RunFunctionOptions {
 }
 
 class FunctionChain {
-  #cacheMode: CacheMode;
-  #cookies: CookieStore;
-  #contextNextCalls: NextOptions[];
+  cacheMode: CacheMode;
+  cookies: CookieStore;
+  contextNextCalls: NextOptions[];
   executionController: AbortController;
   functionNames: string[];
-  #initialHeaders: Headers;
-  #initialRequestURL: URL;
-  #loggedMessages: Set<string>;
+  initialHeaders: Headers;
+  initialRequestURL: URL;
+  loggedMessages: Set<string>;
   metrics: RequestMetrics;
-  #rawLogger: Logger;
+  rawLogger: Logger;
   request: EdgeRequest;
-  #router: Router;
+  router: Router;
   timeoutSignal?: AbortSignal;
-  #cpuTimingPerFunction: boolean;
 
   constructor(
     {
@@ -98,23 +96,19 @@ class FunctionChain {
     }: FunctionChainOptions,
     parentChain?: FunctionChain,
   ) {
-    this.#cacheMode = getCacheMode(request);
-    this.#cookies = cookies;
-    this.#contextNextCalls = [];
+    this.cacheMode = getCacheMode(request);
+    this.cookies = cookies;
+    this.contextNextCalls = [];
     this.executionController = executionController ?? new AbortController();
     this.functionNames = functionNames;
-    this.#initialHeaders = new Headers(request.headers);
-    this.#initialRequestURL = initialRequestURL;
-    this.#loggedMessages = loggedMessages ?? new Set();
+    this.initialHeaders = new Headers(request.headers);
+    this.initialRequestURL = initialRequestURL;
+    this.loggedMessages = loggedMessages ?? new Set();
     this.metrics = new RequestMetrics(initialMetrics ?? parentChain?.metrics);
-    this.#rawLogger = rawLogger;
+    this.rawLogger = rawLogger;
     this.request = request;
-    this.#router = router;
+    this.router = router;
     this.timeoutSignal = timeoutSignal ?? parentChain?.timeoutSignal;
-    this.#cpuTimingPerFunction = hasFlag(
-      request,
-      FeatureFlag.CpuTimingPerFunction,
-    );
   }
 
   async fetchPassthrough(url?: URL) {
@@ -130,8 +124,8 @@ class FunctionChain {
 
     // We strip the conditional headers if `context.next()` was called and at
     // least one of the calls was missing the `sendConditionalRequest` option.
-    const stripConditionalHeaders = this.#contextNextCalls.length > 0 &&
-      this.#contextNextCalls.some((options) => !options.sendConditionalRequest);
+    const stripConditionalHeaders = this.contextNextCalls.length > 0 &&
+      this.contextNextCalls.some((options) => !options.sendConditionalRequest);
     const originReq = new PassthroughRequest({
       req: this.request,
       stripConditionalHeaders,
@@ -141,7 +135,7 @@ class FunctionChain {
     const res = await backoffRetry(async (retryCount) => {
       const fetchLogger = this.logger
         .withFields({
-          context_next_count: this.#contextNextCalls.length,
+          context_next_count: this.contextNextCalls.length,
           method: originReq.method,
           origin_url: url,
           retry_count: retryCount,
@@ -224,7 +218,7 @@ class FunctionChain {
       );
     }
 
-    this.#contextNextCalls.push(options);
+    this.contextNextCalls.push(options);
 
     if (newRequest) {
       this.request = new EdgeRequest(newRequest, this.request);
@@ -241,10 +235,10 @@ class FunctionChain {
   }
 
   getContext(functionIndex: number) {
-    const route = this.#router.getRequestRoute(functionIndex);
+    const route = this.router.getRequestRoute(functionIndex);
     const url = this.request.url;
     const context: Context = {
-      cookies: this.#cookies.getPublicInterface(),
+      cookies: this.cookies.getPublicInterface(),
       deploy: getDeploy(this.request),
       geo: getGeoLocation(this.request),
       ip: getIP(this.request),
@@ -290,7 +284,7 @@ class FunctionChain {
       return;
     }
 
-    const func = this.#router.getFunction(name);
+    const func = this.router.getFunction(name);
 
     if (func === undefined) {
       throw new Error(`Could not find function '${name}'`);
@@ -307,7 +301,7 @@ class FunctionChain {
 
   getLogFunction(functionIndex: number) {
     const functionName = this.functionNames[functionIndex];
-    const logger = this.#rawLogger ?? console.log;
+    const logger = this.rawLogger ?? console.log;
 
     return (...data: unknown[]) => {
       return instrumentedLog(
@@ -327,11 +321,11 @@ class FunctionChain {
   // prevents the same message from being logged multiple times.
   get throttledLogger() {
     return getLogger(this.request).withFilter((message) => {
-      if (this.#loggedMessages.has(message)) {
+      if (this.loggedMessages.has(message)) {
         return false;
       }
 
-      this.#loggedMessages.add(message);
+      this.loggedMessages.add(message);
 
       return true;
     });
@@ -361,7 +355,7 @@ class FunctionChain {
   rewrite(url: string | URL) {
     const newUrl = url instanceof URL ? url : this.makeURL(url);
 
-    if (newUrl.origin !== this.#initialRequestURL.origin) {
+    if (newUrl.origin !== this.initialRequestURL.origin) {
       throw new UserError(
         "Edge functions can only rewrite requests to the same host. For more information, visit https://ntl.fyi/edge-rewrite-external",
       );
@@ -401,7 +395,7 @@ class FunctionChain {
         response = new Response(null, response);
       }
 
-      this.#cookies.apply(response.headers);
+      this.cookies.apply(response.headers);
     }
 
     return response;
@@ -478,17 +472,17 @@ class FunctionChain {
       if (
         supportsPassthroughBypass(this.request) && !requireFinalResponse &&
         this.request.body === null &&
-        this.#cacheMode === CacheMode.Off &&
-        (!hasMutatedHeaders(this.#initialHeaders, this.request.headers) ||
+        getCacheMode(this.request) === CacheMode.Off &&
+        (!hasMutatedHeaders(this.initialHeaders, this.request.headers) ||
           supportsRewriteBypass(this.request))
       ) {
         logger.debug("Returning bypass response");
 
         return new BypassResponse({
-          cookies: this.#cookies,
+          cookies: this.cookies,
           currentRequest: this.request,
-          initialRequestHeaders: this.#initialHeaders,
-          initialRequestURL: this.#initialRequestURL,
+          initialRequestHeaders: this.initialHeaders,
+          initialRequestURL: this.initialRequestURL,
         });
       }
 
@@ -497,7 +491,7 @@ class FunctionChain {
         requireFinalResponse,
         hasBody: this.request.body !== null,
         mutatedHeaders: hasMutatedHeaders(
-          this.#initialHeaders,
+          this.initialHeaders,
           this.request.headers,
         ),
         supportsRewriteBypass: supportsRewriteBypass(this.request),
@@ -512,13 +506,8 @@ class FunctionChain {
     this.metrics.registerInvokedFunction(name);
 
     try {
-      const endInvokedFunctionTiming = this.metrics.startInvokedFunctionTiming(
-        functionIndex,
-        this.#cpuTimingPerFunction,
-      );
       // Wrap the function call with the execution context, so that we can find
       // the request context from any scope. Uses Node's `AsyncLocalStorage`.
-
       const result = await executionStore.run(
         {
           chain: this,
@@ -527,13 +516,11 @@ class FunctionChain {
         () => source(this.request, context) as unknown,
       );
 
-      endInvokedFunctionTiming();
-
       // If the function returned a URL object, it means a rewrite.
       if (result instanceof URL) {
         logger.debug("Function returned a URL object");
 
-        if (result.origin !== this.#initialRequestURL.origin) {
+        if (result.origin !== this.initialRequestURL.origin) {
           throw new UserError(
             `Rewrite to '${result.toString()}' is not allowed: edge functions can only rewrite requests to the same base URL`,
           );
@@ -561,7 +548,7 @@ class FunctionChain {
         const newRequest = new EdgeRequest(result, this.request);
 
         // Run any functions configured for the new path.
-        const functions = this.#router.match(result, newRequest.method);
+        const functions = this.router.match(result, newRequest.method);
 
         // If there are no functions configured for the new path, we can run
         // the rewrite. This means making a passthrough call if the caller
@@ -570,10 +557,10 @@ class FunctionChain {
         if (functions.length === 0) {
           if (canBypass && !requireFinalResponse) {
             return new BypassResponse({
-              cookies: this.#cookies,
+              cookies: this.cookies,
               currentRequest: newRequest,
-              initialRequestHeaders: this.#initialHeaders,
-              initialRequestURL: this.#initialRequestURL,
+              initialRequestHeaders: this.initialHeaders,
+              initialRequestURL: this.initialRequestURL,
             });
           }
 
@@ -585,13 +572,13 @@ class FunctionChain {
         }
 
         const newChain = new FunctionChain({
-          cookies: this.#cookies,
+          cookies: this.cookies,
           executionController: this.executionController,
           functionNames: functions.map((route) => route.name),
-          initialRequestURL: this.#initialRequestURL,
-          rawLogger: this.#rawLogger,
+          initialRequestURL: this.initialRequestURL,
+          rawLogger: this.rawLogger,
           request: newRequest,
-          router: this.#router,
+          router: this.router,
           timeoutSignal: this.timeoutSignal,
         }, this);
         const runOptions: RunOptions = {
@@ -681,10 +668,10 @@ class FunctionChain {
 
       if (supportsRewriteBypass(this.request)) {
         return new BypassResponse({
-          cookies: this.#cookies,
+          cookies: this.cookies,
           currentRequest: new EdgeRequest(url, this.request),
-          initialRequestHeaders: this.#initialHeaders,
-          initialRequestURL: this.#initialRequestURL,
+          initialRequestHeaders: this.initialHeaders,
+          initialRequestURL: this.initialRequestURL,
         });
       }
 

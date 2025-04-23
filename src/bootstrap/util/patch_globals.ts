@@ -68,17 +68,11 @@ export const patchGlobals = () => {
 
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
+
+  patchCaches();
 };
 
-let hasPatchedCaches = false;
-
 export const patchCaches = () => {
-  if (hasPatchedCaches) {
-    return;
-  }
-
-  hasPatchedCaches = true;
-
   if (globalThis.caches) {
     // @ts-expect-error This is the only way to set `globalThis.caches`, even
     // though it's against the type definition.

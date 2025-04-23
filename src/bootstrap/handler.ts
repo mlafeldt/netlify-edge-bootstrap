@@ -23,7 +23,6 @@ import { RequestMetrics } from "./metrics.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
 import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
-import { patchCaches } from "./util/patch_globals.ts";
 import "./globals/types.ts";
 
 interface HandleRequestOptions {
@@ -149,12 +148,6 @@ export const handleRequest = async (
     const edgeReq = new EdgeRequest(new Request(url, req));
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
-
-    // TODO: Once the Cache API has been fully rolled out, remove this call and
-    // let `patchGlobals` handle this.
-    if (cacheAPIToken && cacheAPIURL) {
-      patchCaches();
-    }
 
     let functionNames = functionNamesHeader.split(",");
 

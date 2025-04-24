@@ -52,7 +52,7 @@ export interface IntegrationsConfig extends Config {
  *
  * @see {@link https://docs.netlify.com/edge-functions/declarations/#declare-edge-functions-inline}
  */
-export interface ManifestFunction extends Config {
+export interface ManifestFunction extends IntegrationsConfig {
   function: string;
 }
 

@@ -149,13 +149,9 @@ export const handleRequest = async (
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
 
-    let functionNames = functionNamesHeader.split(",");
-
     // We don't want to run the same function multiple times in the same chain,
     // so we deduplicate the function names while preserving their order.
-    if (hasFlag(edgeReq, FeatureFlag.DedupeFunctions)) {
-      functionNames = [...new Set(functionNames)];
-    }
+    const functionNames = [...new Set(functionNamesHeader.split(","))];
 
     const chain = new FunctionChain({
       functionNames,

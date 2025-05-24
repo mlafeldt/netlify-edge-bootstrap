@@ -61,6 +61,19 @@ export class RequestMetrics {
     return { end };
   }
 
+  getFetchTiming() {
+    const fetchTiming: string[] = [];
+
+    for (const call of this.fetchCalls) {
+      const id = call.host ? `host=${call.host}` : "passthrough";
+      const duration = (call.end ?? performance.now()) - call.start;
+
+      fetchTiming.push(`${id};dur=${RequestMetrics.formatDuration(duration)}`);
+    }
+
+    return fetchTiming;
+  }
+
   // Registers a generic operation and returns the allowance for this type of
   // operation, including the one that is being registered. This means that
   // if the return value is lower than 0, the operation will be blocked.
@@ -91,14 +104,8 @@ export class RequestMetrics {
       this.invokedFunctions.join(","),
     );
 
-    for (const call of this.fetchCalls) {
-      const id = call.host ? `host=${call.host}` : "passthrough";
-      const duration = (call.end ?? performance.now()) - call.start;
-
-      headers.append(
-        InternalHeaders.FetchTiming,
-        `${id};dur=${RequestMetrics.formatDuration(duration)}`,
-      );
+    for (const fetchTiming of this.getFetchTiming()) {
+      headers.append(InternalHeaders.FetchTiming, fetchTiming);
     }
 
     const cacheAPIOperations = [

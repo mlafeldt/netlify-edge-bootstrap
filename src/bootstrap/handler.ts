@@ -1,8 +1,4 @@
-import {
-  FeatureFlag,
-  hasFlag,
-  parseFeatureFlagsHeader,
-} from "./feature_flags.ts";
+import { FeatureFlag, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { FunctionChain } from "./function_chain.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { detachedLogger } from "./log/logger.ts";
@@ -218,24 +214,23 @@ export const handleRequest = async (
         errorString = JSON.stringify({ error: String(error) });
       }
     } else if (environment === "production") {
-      let fields: Record<string, string | undefined> = {};
+      const fields: Record<string, string | undefined> = {
+        fetch_timing: metrics.getFetchTiming().join(","),
+        req_aborted: req.signal.aborted.toString(),
+      };
 
       if (error instanceof Error) {
         const errorType = error instanceof UserError
           ? ErrorType.User
           : ErrorType.Unknown;
 
-        fields = {
-          error_name: error.name,
-          error_message: error.message,
-          error_stack: error.stack,
-          error_cause: String(error.cause),
-          error_type: errorType,
-        };
+        fields.error_name = error.name;
+        fields.error_message = error.message;
+        fields.error_stack = error.stack;
+        fields.error_cause = String(error.cause);
+        fields.error_type = errorType;
       } else {
-        fields = {
-          error_message: String(error),
-        };
+        fields.error_message = String(error);
       }
 
       logger

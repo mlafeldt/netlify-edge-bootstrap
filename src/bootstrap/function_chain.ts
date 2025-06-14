@@ -137,7 +137,7 @@ class FunctionChain {
         .withFields({
           context_next_count: this.contextNextCalls.length,
           method: originReq.method,
-          origin_url: url,
+          origin_url: originReq.url,
           retry_count: retryCount,
           strip_conditional_headers: stripConditionalHeaders,
         });

@@ -66,6 +66,9 @@ interface RunFunctionOptions {
   previousRewrites?: Set<string>;
 }
 
+const DENO_REGION = Deno.env.get("DENO_REGION") ?? "";
+const DENO_RUNNER_IP = Deno.env.get("DENO_RUNNER_IP") ?? "";
+
 class FunctionChain {
   cacheMode: CacheMode;
   cookies: CookieStore;
@@ -140,6 +143,7 @@ class FunctionChain {
           origin_url: originReq.url,
           retry_count: retryCount,
           strip_conditional_headers: stripConditionalHeaders,
+          deno_runner_public_ip: DENO_RUNNER_IP,
         });
 
       fetchLogger.debug(
@@ -269,7 +273,7 @@ class FunctionChain {
       site: getSite(this.request),
       account: getAccount(this.request),
       server: {
-        region: Deno.env.get("DENO_REGION") ?? "",
+        region: DENO_REGION,
       },
       url: new URL(url),
     };

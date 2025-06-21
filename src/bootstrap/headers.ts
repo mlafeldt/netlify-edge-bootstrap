@@ -37,6 +37,7 @@ export enum InternalHeaders {
   PurgeAPIToken = "x-nf-purge-api-token",
   FetchTiming = "x-nf-fetch-timing",
   InvocationMetrics = "x-nf-invocation-metrics",
+  NFTraceSpanID = "x-nf-trace-span-id",
 }
 
 export enum StandardHeaders {

@@ -27,6 +27,7 @@ import {
   getLogger,
   getRequestID,
   getSite,
+  getSpanID,
   PassthroughRequest,
   setPassthroughHeaders,
 } from "./request.ts";
@@ -269,6 +270,7 @@ class FunctionChain {
         return getPathParameters(route?.path, url);
       },
       requestId: this.requestID,
+      spanID: this.spanID,
       rewrite: this.rewrite.bind(this),
       site: getSite(this.request),
       account: getAccount(this.request),
@@ -311,7 +313,12 @@ class FunctionChain {
       return instrumentedLog(
         logger,
         data,
-        { chain: this, functionName, requestID: this.requestID },
+        {
+          chain: this,
+          functionName,
+          requestID: this.requestID,
+          spanID: this.spanID,
+        },
       );
     };
   }
@@ -354,6 +361,10 @@ class FunctionChain {
 
   get requestID() {
     return getRequestID(this.request);
+  }
+
+  get spanID() {
+    return getSpanID(this.request);
   }
 
   rewrite(url: string | URL) {
@@ -633,6 +644,7 @@ class FunctionChain {
         chain: this,
         functionName: name,
         requestID: this.requestID,
+        spanID: this.spanID,
       };
 
       logger.withFields({ onError: config.onError })

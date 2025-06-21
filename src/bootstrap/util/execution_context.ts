@@ -27,6 +27,7 @@ export const getExecutionContext = (): ExecutionContext | undefined => {
     context: chain.getContext(functionIndex),
     functionName: chain.functionNames[functionIndex],
     requestID: chain.requestID,
+    spanID: chain.spanID,
   };
 };
 
@@ -35,6 +36,7 @@ export interface ExecutionContext {
   context: FunctionContext;
   functionName: string;
   requestID: string;
+  spanID: string;
 }
 
 // To reduce log volume, we use this to keep track of the times we've failed to

@@ -10,11 +10,13 @@ export interface InstrumentedLogMetadata {
   chain?: FunctionChain;
   functionName?: string;
   requestID?: string;
+  spanID?: string;
 }
 
 export interface NetlifyMetadata {
   edgeFunctionName?: string;
   requestID?: string;
+  spanID?: string;
   type?: LogType;
   url?: string;
 }
@@ -27,6 +29,7 @@ export interface InstrumentedLogMetadata {
   chain?: FunctionChain;
   functionName?: string;
   requestID?: string;
+  spanID?: string;
 }
 
 /**
@@ -48,12 +51,13 @@ export const instrumentedLog = (
   metadata?: InstrumentedLogMetadata,
 ) => {
   const environment = getEnvironment();
-  const { chain, functionName, requestID } = metadata ?? {};
+  const { chain, functionName, requestID, spanID } = metadata ?? {};
 
   if (environment === "production") {
     const metadata: NetlifyMetadata = {
       edgeFunctionName: functionName,
       requestID: requestID,
+      spanID: spanID,
     };
 
     // If the input is a `StructuredLogger` instance, we know we're dealing
@@ -128,6 +132,7 @@ export const patchLogger = (logger: Logger) => {
           chain: executionContext?.chain,
           functionName: executionContext?.functionName,
           requestID: executionContext?.requestID,
+          spanID: executionContext?.spanID,
         },
       );
     } catch {

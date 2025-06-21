@@ -66,6 +66,7 @@ export interface Context {
   deploy: Deploy;
   params: Record<string, string>;
   url: URL;
+  spanID: string;
 }
 
 export interface NextOptions {

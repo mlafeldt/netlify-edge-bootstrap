@@ -20,6 +20,7 @@ import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
 import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
 import "./globals/types.ts";
+import { patchFetchToForceHTTP11 } from "./util/fetch.ts";
 
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
@@ -66,6 +67,14 @@ export const handleRequest = async (
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
+
+  // if ForceHTTP11 is enabled, we patch the fetch to enforce HTTP/1.1
+  if (featureFlags[FeatureFlag.ForceHTTP11]) {
+    // this is not incuded in the `patchGlobals` function because that function
+    // is invoked before we have access to the feature flags. once this is fully
+    // rolled out, we will want to move this into `patchGlobals`
+    globalThis.fetch = patchFetchToForceHTTP11(globalThis.fetch);
+  }
 
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.

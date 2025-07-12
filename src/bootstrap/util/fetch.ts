@@ -148,3 +148,18 @@ export const patchFetchToForwardHeaders = (
     return rawFetch(request);
   };
 };
+
+// We currently see issues with some requests on Deno and the current thinking is
+// something in the H2 client is broken and the client is entering a weird state
+// and either cannot get or lose a connection from the pool. This means that sometimes
+// a fetch doesn't reach us at all, it can't establish connection.
+// Our working theory is to temporarily switch to HTTP/1 for passthrough requests.
+export const patchFetchToForceHTTP11 = (
+  rawFetch: typeof globalThis.fetch,
+) => {
+  return (input: URL | Request | string, init?: RequestInit) => {
+    const client = Deno.createHttpClient({ http1: true, http2: false });
+
+    return rawFetch(input, { ...init, client });
+  };
+};

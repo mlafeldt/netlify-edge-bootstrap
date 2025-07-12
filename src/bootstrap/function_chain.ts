@@ -41,6 +41,7 @@ import {
 } from "./util/errors.ts";
 import { executionStore } from "./util/execution_context.ts";
 import { isRedirect } from "./util/redirect.ts";
+import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -633,6 +634,11 @@ class FunctionChain {
         // HTTP/2 connection.
         return mutateHeaders(result, (headers) => {
           headers.delete(StandardHeaders.ContentLength);
+
+          // For HTTP/1.1, use chunked encoding to avoid content-length issues
+          if (hasFlag(this.request, FeatureFlag.ForceHTTP11)) {
+            headers.set("transfer-encoding", "chunked");
+          }
         });
       }
 

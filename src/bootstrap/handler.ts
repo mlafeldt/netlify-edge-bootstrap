@@ -20,7 +20,10 @@ import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
 import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
 import "./globals/types.ts";
-import { patchFetchToForceHTTP11 } from "./util/fetch.ts";
+import {
+  patchFetchToForceHTTP11,
+  patchFetchToHaveItsOwnConnectionPoolPerIsolate,
+} from "./util/fetch.ts";
 
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
@@ -67,6 +70,17 @@ export const handleRequest = async (
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
+
+  // If the `UseOneClientPoolPerIsolate` feature flag is enabled, we patch the
+  // fetch to use its own connection pool.
+  if (featureFlags[FeatureFlag.UseOneClientPoolPerIsolate]) {
+    // this is not incuded in the `patchGlobals` function because that function
+    // is invoked before we have access to the feature flags. once this is fully
+    // rolled out, we will want to move this into `patchGlobals`
+    globalThis.fetch = patchFetchToHaveItsOwnConnectionPoolPerIsolate(
+      globalThis.fetch,
+    );
+  }
 
   // if ForceHTTP11 is enabled, we patch the fetch to enforce HTTP/1.1
   if (featureFlags[FeatureFlag.ForceHTTP11]) {

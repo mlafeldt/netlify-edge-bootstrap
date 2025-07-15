@@ -163,3 +163,24 @@ export const patchFetchToForceHTTP11 = (
     return rawFetch(input, { ...init, client });
   };
 };
+
+// We currently see issues with some requests on Deno and the current thinking is
+// something in the H2 client is broken and the client is entering a weird state
+// and either cannot get or lose a connection from the pool. This means that sometimes
+// a fetch doesn't reach us at all, it can't establish connection.
+// To mitigate this, we patch the fetch to use its own connection pool
+// so that it doesn't used the wider shared pool within Deno.
+let client: Deno.HttpClient;
+export let isClientPatched = false;
+export const patchFetchToHaveItsOwnConnectionPoolPerIsolate = (
+  rawFetch: typeof globalThis.fetch,
+) => {
+  if (isClientPatched) {
+    return rawFetch;
+  }
+  isClientPatched = true;
+  client = Deno.createHttpClient({});
+  return (input: URL | Request | string, init?: RequestInit) => {
+    return rawFetch(input, { ...init, client });
+  };
+};

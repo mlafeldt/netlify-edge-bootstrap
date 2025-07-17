@@ -34,6 +34,7 @@ export interface Config {
   pattern?: string | string[];
   method?: HTTPMethod | HTTPMethod[];
   rateLimit?: RateLimitConfig;
+  header?: Record<string, boolean | string>;
 }
 
 /**

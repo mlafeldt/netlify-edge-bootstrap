@@ -564,7 +564,7 @@ class FunctionChain {
         const newRequest = new EdgeRequest(result, this.request);
 
         // Run any functions configured for the new path.
-        const functions = this.router.match(result, newRequest.method);
+        const functions = this.router.match(result, newRequest);
 
         // If there are no functions configured for the new path, we can run
         // the rewrite. This means making a passthrough call if the caller

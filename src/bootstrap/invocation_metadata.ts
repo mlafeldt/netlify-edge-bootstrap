@@ -11,6 +11,7 @@ export interface RequestInvocationMetadata {
     path?: string;
     pattern: string;
     methods?: string[];
+    header?: Record<string, boolean | string>;
   }[] | null;
 }
 

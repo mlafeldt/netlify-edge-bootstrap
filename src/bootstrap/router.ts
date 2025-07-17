@@ -1,4 +1,5 @@
 import { EdgeFunction } from "./edge_function.ts";
+import { isInternalHeader } from "./headers.ts";
 import { RequestInvocationMetadata } from "./invocation_metadata.ts";
 import type { Functions } from "./stage_2.ts";
 
@@ -18,6 +19,7 @@ export interface FunctionMatch {
 interface FunctionRoute extends FunctionMatch {
   pattern: RegExp;
   methods: string[];
+  header?: Record<string, boolean | string>;
 }
 
 interface FunctionWithConfig {
@@ -111,6 +113,7 @@ export class Router {
         pattern: new RegExp(route.pattern),
         source: func.source,
         methods: route.methods ?? [],
+        header: route.header,
       };
     });
   }
@@ -135,7 +138,15 @@ export class Router {
   }
 
   // Returns the functions that should run for a given URL path.
-  match(url: URL, method: string): FunctionMatch[] {
+  match(url: URL, req: Request): FunctionMatch[] {
+    // Filter out internal headers for matching
+    const userHeaders = new Headers();
+    for (const [key, value] of req.headers.entries()) {
+      if (!isInternalHeader(key)) {
+        userHeaders.set(key, value);
+      }
+    }
+
     const functions = this.routes.map((route) => {
       if (route === null) {
         return;
@@ -148,7 +159,7 @@ export class Router {
       }
 
       if (route.methods.length > 0) {
-        const matchesMethod = route.methods.includes(method);
+        const matchesMethod = route.methods.includes(req.method);
         if (!matchesMethod) {
           return;
         }
@@ -166,6 +177,40 @@ export class Router {
 
       if (isExcluded) {
         return;
+      }
+
+      // Check header matching conditions
+      if (route.header) {
+        const matchesHeaders = Object.entries(route.header).every(
+          ([headerName, headerValue]) => {
+            const requestHeaderValue = userHeaders.get(
+              headerName.toLowerCase(),
+            )?.split(", ").join(",");
+
+            if (typeof headerValue === "boolean") {
+              return headerValue === Boolean(requestHeaderValue);
+            }
+
+            if (typeof headerValue === "string") {
+              if (!requestHeaderValue) {
+                return false;
+              }
+
+              try {
+                const regex = new RegExp(headerValue);
+                return regex.test(requestHeaderValue);
+              } catch {
+                return false;
+              }
+            }
+
+            return false;
+          },
+        );
+
+        if (!matchesHeaders) {
+          return;
+        }
       }
 
       // `route` is a `FunctionRoute`, which is a supertype of `FunctionMatch`.

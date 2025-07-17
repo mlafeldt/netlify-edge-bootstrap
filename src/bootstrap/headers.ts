@@ -117,3 +117,7 @@ export const mutateHeaders = (
 
   return newRes;
 };
+
+export const isInternalHeader = (name: string) =>
+  name.startsWith("x-nf-") || name.startsWith("x-deno-") ||
+  name.startsWith("x-bb-");

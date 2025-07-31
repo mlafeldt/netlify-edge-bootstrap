@@ -65,9 +65,13 @@ export const serve = (
   Deno.addSignalListener("SIGINT", async () => {
     await server.shutdown();
   });
-  Deno.addSignalListener("SIGTERM", async () => {
-    await server.shutdown();
-  });
+
+  // SIGTERM is not supported on Windows, only add listener on other platforms
+  if (Deno.build.os !== "windows") {
+    Deno.addSignalListener("SIGTERM", async () => {
+      await server.shutdown();
+    });
+  }
 
   return server.finished;
 };

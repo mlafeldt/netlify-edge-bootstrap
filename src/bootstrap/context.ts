@@ -67,6 +67,7 @@ export interface Context {
   params: Record<string, string>;
   url: URL;
   spanID: string;
+  waitUntil: (promise: Promise<unknown>) => void;
 }
 
 export interface NextOptions {

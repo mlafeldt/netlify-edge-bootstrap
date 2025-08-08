@@ -279,6 +279,21 @@ class FunctionChain {
         region: DENO_REGION,
       },
       url: new URL(url),
+      waitUntil: function waitUntil(promise: Promise<unknown>) {
+        if (arguments.length === 0) {
+          throw new TypeError(
+            "waitUntil: At least 1 argument required, but only 0 passed",
+          );
+        }
+
+        setTimeout(() => {
+          // We call Promise.resolve on the supplied argument as to
+          // ensure that it is now a Promise instance, which we can then add
+          // a rejection handler onto via the `Promise.prototype.catch`
+          // method.
+          Promise.resolve(promise).catch((error) => console.error(error));
+        }, 0);
+      },
     };
 
     return context;

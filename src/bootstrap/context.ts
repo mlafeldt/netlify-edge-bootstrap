@@ -65,6 +65,7 @@ export interface Context {
   server: ServerMetadata;
   deploy: Deploy;
   params: Record<string, string>;
+  path: string;
   url: URL;
   spanID: string;
   waitUntil: (promise: Promise<unknown>) => void;

@@ -242,6 +242,7 @@ class FunctionChain {
 
   getContext(functionIndex: number) {
     const route = this.router.getRequestRoute(functionIndex);
+    const path = route?.path ?? "";
     const url = this.request.url;
     const context: Context = {
       cookies: this.cookies.getPublicInterface(),
@@ -270,6 +271,7 @@ class FunctionChain {
       get params() {
         return getPathParameters(route?.path, url);
       },
+      path,
       requestId: this.requestID,
       spanID: this.spanID,
       rewrite: this.rewrite.bind(this),

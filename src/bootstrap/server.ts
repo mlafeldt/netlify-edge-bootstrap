@@ -28,14 +28,11 @@ patchGlobals();
 
 export const serve = (
   functions: () => Promise<Record<string, EdgeFunction>>,
-  onListen?: () => void,
 ) => {
   const serveOptions: Deno.ServeTcpOptions = {
-    onListen() {
-      if (typeof onListen === "function") {
-        onListen();
-      }
-    },
+    // Adding a no-op listener to avoid the default one, which prints a message
+    // we don't want.
+    onListen() {},
   };
 
   const portRaw = parse(Deno.args).port || 8000;

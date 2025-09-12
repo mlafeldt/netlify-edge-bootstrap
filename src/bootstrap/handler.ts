@@ -11,7 +11,11 @@ import {
   getLogger,
   getPassthroughHeaders,
 } from "./request.ts";
-import { getEnvironment, populateEnvironment } from "./environment.ts";
+import {
+  getEnvironment,
+  populateEnvironment,
+  setHasPopulatedEnvironment,
+} from "./environment.ts";
 import { Netlify } from "./globals/implementation.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
@@ -40,11 +44,12 @@ globalThis.Netlify = Netlify;
 // https://github.com/denoland/deno/issues/27715
 globalThis.addEventListener("unhandledrejection", (event) => {
   if (
-    event.reason instanceof DOMException && event.reason.name === "AbortError"
+    event.reason instanceof DOMException &&
+    event.reason.name === "AbortError"
   ) {
-    detachedLogger.withError(event.reason).debug(
-      "found unhandled AbortError exception",
-    );
+    detachedLogger
+      .withError(event.reason)
+      .debug("found unhandled AbortError exception");
 
     event.preventDefault();
 
@@ -280,11 +285,15 @@ const getInvocationErrorHeader = (error: unknown) => {
   }
 
   if (
-    (error instanceof Error) &&
+    error instanceof Error &&
     (error?.name === "AbortError" || error?.name === "TimeoutError")
   ) {
     return "timeout";
   }
 
   return "1";
+};
+
+export const resetModuleState = () => {
+  setHasPopulatedEnvironment(false);
 };

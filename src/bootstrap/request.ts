@@ -26,6 +26,7 @@ export const enum CacheMode {
 
 interface EdgeRequestInternals {
   account: Account;
+  aiGateway: string | null;
   blobs: BlobsMetadata;
   bypassSettings: string | null;
   cacheAPIURL: string | null;
@@ -42,10 +43,10 @@ interface EdgeRequestInternals {
   passthroughHost: string | null;
   passthroughProtocol: string | null;
   passthroughHeaders?: Headers;
+  purgeAPIToken: string | null;
   requestID: string | null;
   spanID?: string | null;
   site: Site;
-  purgeAPIToken: string | null;
 }
 
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
@@ -57,9 +58,8 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
   };
 
   return {
-    account: parseAccountHeader(
-      headers.get(InternalHeaders.AccountInfo),
-    ),
+    account: parseAccountHeader(headers.get(InternalHeaders.AccountInfo)),
+    aiGateway: headers.get(InternalHeaders.AIGateway),
     blobs: parseBlobsMetadata(headers.get(InternalHeaders.BlobsInfo)),
     bypassSettings: headers.get(InternalHeaders.EdgeFunctionBypass),
     cacheAPIURL: headers.get(InternalHeaders.CacheAPIURL),
@@ -77,9 +77,9 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     passthrough: headers.get(InternalHeaders.Passthrough),
     passthroughHost: headers.get(InternalHeaders.PassthroughHost),
     passthroughProtocol: headers.get(InternalHeaders.PassthroughProtocol),
+    purgeAPIToken: headers.get(InternalHeaders.PurgeAPIToken),
     requestID: headers.get(InternalHeaders.RequestID),
     spanID: headers.get(InternalHeaders.NFTraceSpanID),
-    purgeAPIToken: headers.get(InternalHeaders.PurgeAPIToken),
     site,
   };
 };
@@ -104,12 +104,13 @@ export class EdgeRequest extends Request {
       ? LogLevel.Debug
       : LogLevel.Log;
 
-    this[loggerSymbol] = detachedLogger.withRequestID(requestID).withLogLevel(
-      logLevel,
-    );
+    this[loggerSymbol] = detachedLogger
+      .withRequestID(requestID)
+      .withLogLevel(logLevel);
 
     [
       InternalHeaders.AccountInfo,
+      InternalHeaders.AIGateway,
       InternalHeaders.CacheAPIToken,
       InternalHeaders.CacheAPIURL,
       InternalHeaders.ForwardedHost,
@@ -134,6 +135,9 @@ export class EdgeRequest extends Request {
 
 export const getAccount = (request: EdgeRequest) =>
   request[internalsSymbol].account;
+
+export const getAIGateway = (request: EdgeRequest) =>
+  request[internalsSymbol].aiGateway;
 
 export const getBlobs = (request: EdgeRequest) =>
   request[internalsSymbol].blobs;

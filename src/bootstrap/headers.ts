@@ -1,4 +1,6 @@
 export enum InternalHeaders {
+  AIGateway = "x-nf-ai-gateway",
+  AIGatewayLegacy = "x-nf-ai-gateway-token",
   BlobsInfo = "x-nf-blobs-info",
   CacheAPIToken = "x-nf-pc-token",
   CacheAPIURL = "x-nf-pc-url",
@@ -38,6 +40,7 @@ export enum InternalHeaders {
   FetchTiming = "x-nf-fetch-timing",
   InvocationMetrics = "x-nf-invocation-metrics",
   NFTraceSpanID = "x-nf-trace-span-id",
+  NFEdgeFuncEnv = "x-nf-edge-function-env",
 }
 
 export enum StandardHeaders {
@@ -119,5 +122,6 @@ export const mutateHeaders = (
 };
 
 export const isInternalHeader = (name: string) =>
-  name.startsWith("x-nf-") || name.startsWith("x-deno-") ||
+  name.startsWith("x-nf-") ||
+  name.startsWith("x-deno-") ||
   name.startsWith("x-bb-");

@@ -3,7 +3,7 @@ import { handleRequest } from "./handler.ts";
 import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
 import type { EdgeFunction } from "./edge_function.ts";
-import { parse } from "https://deno.land/std@0.170.0/flags/mod.ts";
+import { parse } from "../vendor/deno.land/std@0.170.0/flags/mod.ts";
 
 // The timeout imposed by the edge nodes. It's important to keep this in place
 // as a fallback in case we're unable to patch `fetch` to add our own here.

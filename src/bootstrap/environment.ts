@@ -1,7 +1,7 @@
 import { FeatureFlag, hasFlag } from "./feature_flags.ts";
-import { InternalHeaders } from "./headers.ts";
 import { getAIGateway, getLogger, getPurgeAPIToken } from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
+import { GetEnvFromEdgeFuncEnvHeader } from "./get_env_from_edge_func_env_header.ts";
 
 let hasPopulatedEnvironment = false;
 
@@ -87,14 +87,9 @@ const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
     return;
   }
 
-  const envHeader = req.headers.get(InternalHeaders.NFEdgeFuncEnv);
-  if (!envHeader) {
-    return;
-  }
-
-  let envVars;
+  let envVars: Record<string, string> | undefined;
   try {
-    envVars = JSON.parse(envHeader);
+    envVars = GetEnvFromEdgeFuncEnvHeader(req.headers);
   } catch (error) {
     getLogger(req)
       .withError(error as Error)

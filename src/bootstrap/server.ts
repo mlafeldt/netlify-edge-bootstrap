@@ -28,11 +28,15 @@ patchGlobals();
 
 export const serve = (
   functions: () => Promise<Record<string, EdgeFunction>>,
+  onListen?: () => void,
 ) => {
   const serveOptions: Deno.ServeTcpOptions = {
-    // Adding a no-op listener to avoid the default one, which prints a message
-    // we don't want.
-    onListen() {},
+    onListen() {
+      if (typeof onListen === "function") {
+        onListen();
+      }
+      functionsPromise = functions();
+    },
   };
 
   const portRaw = parse(Deno.args).port || 8000;
@@ -48,9 +52,14 @@ export const serve = (
   // Set the port for the server to listen on
   serveOptions.port = port;
 
+  let functionsPromise: Promise<Record<string, EdgeFunction>>;
+  let funcs: Record<string, EdgeFunction> | undefined;
   const server = Deno.serve(serveOptions, async (req: Request) => {
     try {
-      return await handleRequest(req, await functions(), {
+      if (!funcs) {
+        funcs = await functionsPromise;
+      }
+      return await handleRequest(req, funcs, {
         fetchRewrites,
         rawLogger: consoleLog,
         requestTimeout: REQUEST_TIMEOUT,

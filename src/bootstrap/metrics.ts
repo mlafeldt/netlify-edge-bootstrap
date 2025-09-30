@@ -23,13 +23,10 @@ export class RequestMetrics {
   private invokedFunctions: string[];
   private passthroughCalls: number[];
 
-  private id: number;
-
   constructor(
     initialMetrics?: RequestMetrics,
     limits: Record<string, number> = LIMITS,
   ) {
-    this.id = Math.random();
     this.counts = initialMetrics?.counts ?? new Map();
     this.limits = limits;
     this.fetchCalls = initialMetrics?.fetchCalls ?? [];

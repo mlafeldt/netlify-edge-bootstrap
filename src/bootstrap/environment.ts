@@ -8,6 +8,7 @@ let hasPopulatedEnvironment = false;
 const NETLIFY_AI_GATEWAY_KEY_VAR = "NETLIFY_AI_GATEWAY_KEY";
 const NETLIFY_AI_GATEWAY_BASE_URL_VAR = "NETLIFY_AI_GATEWAY_URL";
 const NETLIFY_AI_GATEWAY_DEFAULT_PATH = "/.netlify/ai/";
+const NETLIFY_ENVIRONMENT = "NETLIFY_ENVIRONMENT";
 export const AI_PROVIDERS = [
   { key: "OPENAI_API_KEY", url: "OPENAI_BASE_URL" },
   { key: "ANTHROPIC_API_KEY", url: "ANTHROPIC_BASE_URL" },
@@ -79,8 +80,16 @@ const injectAIEnvironment = (
   }
 };
 
-export const getEnvironment = () =>
-  Deno.env.get("DENO_DEPLOYMENT_ID") ? "production" : "local";
+// Read this before we read any user-defined variables.
+const environment = Deno.env.get(NETLIFY_ENVIRONMENT);
+
+export const getEnvironment = () => {
+  if (Deno.env.get("DENO_DEPLOYMENT_ID") || (environment === "production")) {
+    return "production";
+  }
+
+  return "local";
+};
 
 const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
   if (!hasFlag(req, FeatureFlag.InjectEnvironmentVariablesFromHeader)) {
@@ -102,6 +111,10 @@ const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
       .debug("Environment variables header is not a valid object");
     return;
   }
+
+  // We don't want to expose this variable to user code. We've already read it,
+  // so we can delete it from the environment.
+  Deno.env.delete(NETLIFY_ENVIRONMENT);
 
   for (const [key, value] of Object.entries(envVars)) {
     if (typeof value === "string") {

@@ -7,7 +7,7 @@ import {
   InternalHeaders,
   StandardHeaders,
 } from "./headers.ts";
-import { FeatureFlags, parseFeatureFlagsHeader } from "./feature_flags.ts";
+import { FeatureFlags } from "./feature_flags.ts";
 import {
   detachedLogger,
   LogLevel,
@@ -67,9 +67,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
     cdnLoop: headers.get(StandardHeaders.CDNLoop),
     deploy,
-    featureFlags: parseFeatureFlagsHeader(
-      headers.get(InternalHeaders.FeatureFlags),
-    ),
+    featureFlags: {},
     forwardedHost: headers.get(InternalHeaders.ForwardedHost),
     forwardedProtocol: headers.get(InternalHeaders.ForwardedProtocol),
     geo: parseGeoHeader(headers.get(InternalHeaders.Geo)),
@@ -177,6 +175,13 @@ export const getPassthroughHeaders = (request: EdgeRequest) =>
 
 export const getPurgeAPIToken = (request: EdgeRequest) =>
   request[internalsSymbol].purgeAPIToken;
+
+export const setFeatureFlags = (
+  request: EdgeRequest,
+  featureFlags: FeatureFlags,
+) => {
+  request[internalsSymbol].featureFlags = featureFlags;
+};
 
 export const setPassthroughHeaders = (
   request: EdgeRequest,

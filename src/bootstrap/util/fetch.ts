@@ -141,7 +141,7 @@ export const patchFetchToForwardHeaders = (
       request.headers.set(InternalHeaders.RequestID, requestID);
     }
 
-    if (cdnLoop && hasFlag(chain.request, FeatureFlag.ForwardCDNLoop)) {
+    if (cdnLoop) {
       request.headers.append(StandardHeaders.CDNLoop, cdnLoop);
     }
 

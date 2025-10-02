@@ -10,6 +10,7 @@ import {
   getFeatureFlags,
   getLogger,
   getPassthroughHeaders,
+  setFeatureFlags,
 } from "./request.ts";
 import {
   getEnvironment,
@@ -69,9 +70,6 @@ export const handleRequest = async (
   const id = req.headers.get(InternalHeaders.RequestID);
   const environment = getEnvironment();
   const logger = detachedLogger.withRequestID(id);
-
-  // We already parse this a bit later. Doing it here is a tiny bit expensive,
-  // please remove this once you don't need it anymore.
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
@@ -100,10 +98,9 @@ export const handleRequest = async (
   const metrics = new RequestMetrics();
 
   // An `AbortSignal` that will abort when the configured timeout is hit.
-  const timeoutSignal =
-    featureFlags[FeatureFlag.InvocationTimeout] && requestTimeout
-      ? AbortSignal.timeout(requestTimeout)
-      : undefined;
+  const timeoutSignal = requestTimeout
+    ? AbortSignal.timeout(requestTimeout)
+    : undefined;
 
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
@@ -170,6 +167,9 @@ export const handleRequest = async (
     }
 
     const edgeReq = new EdgeRequest(new Request(url, req));
+
+    setFeatureFlags(edgeReq, featureFlags);
+
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
 

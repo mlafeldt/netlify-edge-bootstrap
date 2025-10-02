@@ -18,7 +18,7 @@ export interface FunctionMatch {
 
 interface FunctionRoute extends FunctionMatch {
   pattern: RegExp;
-  methods: string[];
+  methods?: Set<string>;
   header?: Record<string, boolean | string>;
 }
 
@@ -112,7 +112,9 @@ export class Router {
         path: route.path,
         pattern: new RegExp(route.pattern),
         source: func.source,
-        methods: route.methods ?? [],
+        methods: route.methods && route.methods.length > 0
+          ? new Set(route.methods)
+          : undefined,
         header: route.header,
       };
     });
@@ -139,14 +141,6 @@ export class Router {
 
   // Returns the functions that should run for a given URL path.
   match(url: URL, req: Request): FunctionMatch[] {
-    // Filter out internal headers for matching
-    const userHeaders = new Headers();
-    for (const [key, value] of req.headers.entries()) {
-      if (!isInternalHeader(key)) {
-        userHeaders.set(key, value);
-      }
-    }
-
     const functions = this.routes.map((route) => {
       if (route === null) {
         return;
@@ -158,8 +152,8 @@ export class Router {
         return;
       }
 
-      if (route.methods.length > 0) {
-        const matchesMethod = route.methods.includes(req.method);
+      if (route.methods && route.methods.size > 0) {
+        const matchesMethod = route.methods.has(req.method);
         if (!matchesMethod) {
           return;
         }
@@ -181,35 +175,36 @@ export class Router {
 
       // Check header matching conditions
       if (route.header) {
-        const matchesHeaders = Object.entries(route.header).every(
-          ([headerName, headerValue]) => {
-            const requestHeaderValue = userHeaders.get(
-              headerName.toLowerCase(),
-            )?.split(", ").join(",");
+        for (const [headerName, headerValue] of Object.entries(route.header)) {
+          const normalizedHeaderName = headerName.toLowerCase();
+          // Exclude internal headers from matching semantics
+          if (isInternalHeader(normalizedHeaderName)) {
+            continue;
+          }
 
-            if (typeof headerValue === "boolean") {
-              return headerValue === Boolean(requestHeaderValue);
+          const rawValue = req.headers.get(normalizedHeaderName);
+          const requestHeaderValue = rawValue?.split(", ").join(",");
+
+          if (typeof headerValue === "boolean") {
+            if (headerValue !== Boolean(requestHeaderValue)) {
+              return;
+            }
+          } else if (typeof headerValue === "string") {
+            if (!requestHeaderValue) {
+              return;
             }
 
-            if (typeof headerValue === "string") {
-              if (!requestHeaderValue) {
-                return false;
+            try {
+              const regex = new RegExp(headerValue);
+              if (!regex.test(requestHeaderValue)) {
+                return;
               }
-
-              try {
-                const regex = new RegExp(headerValue);
-                return regex.test(requestHeaderValue);
-              } catch {
-                return false;
-              }
+            } catch {
+              return;
             }
-
-            return false;
-          },
-        );
-
-        if (!matchesHeaders) {
-          return;
+          } else {
+            return;
+          }
         }
       }
 

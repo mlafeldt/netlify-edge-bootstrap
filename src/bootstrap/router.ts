@@ -19,7 +19,7 @@ export interface FunctionMatch {
 interface FunctionRoute extends FunctionMatch {
   pattern: RegExp;
   methods?: Set<string>;
-  header?: Record<string, boolean | string>;
+  header?: Record<string, boolean | RegExp | null>;
 }
 
 interface FunctionWithConfig {
@@ -30,6 +30,25 @@ interface FunctionWithConfig {
 export enum OnError {
   Bypass = "bypass",
   Fail = "fail",
+}
+
+// Global cache for compiled regex patterns to avoid recompiling the same
+// pattern across multiple routes
+const regexCache = new Map<string, RegExp | null>();
+
+function getOrCompileRegex(pattern: string): RegExp | null {
+  let regex = regexCache.get(pattern);
+  if (!regex) {
+    try {
+      regex = new RegExp(pattern);
+    } catch {
+      // Invalid regex: use null to preserve previous
+      // behavior (header condition fails for this route).
+      regex = null;
+    }
+    regexCache.set(pattern, regex);
+  }
+  return regex;
 }
 
 export class Router {
@@ -106,6 +125,23 @@ export class Router {
         return null;
       }
 
+      // Precompile header matchers: normalize header names to lowercase and
+      // convert string values to RegExp once, so `match()` doesn't need to
+      // construct regexes per request.
+      let compiledHeader: Record<string, boolean | RegExp | null> | undefined;
+      if (route.header) {
+        compiledHeader = {};
+        for (const [name, value] of Object.entries(route.header)) {
+          const key = name.toLowerCase();
+
+          if (typeof value === "boolean") {
+            compiledHeader[key] = value;
+          } else if (typeof value === "string") {
+            compiledHeader[key] = getOrCompileRegex(value);
+          }
+        }
+      }
+
       return {
         config: func.config,
         name: route.function,
@@ -115,7 +151,7 @@ export class Router {
         methods: route.methods && route.methods.length > 0
           ? new Set(route.methods)
           : undefined,
-        header: route.header,
+        header: compiledHeader,
       };
     });
   }
@@ -141,28 +177,32 @@ export class Router {
 
   // Returns the functions that should run for a given URL path.
   match(url: URL, req: Request): FunctionMatch[] {
-    const functions = this.routes.map((route) => {
+    const functions: FunctionMatch[] = [];
+
+    routeLoop: for (let i = 0; i < this.routes.length; i++) {
+      const route = this.routes[i];
+
       if (route === null) {
-        return;
+        continue;
       }
 
       const isMatch = route.pattern.test(url.pathname);
 
       if (!isMatch) {
-        return;
+        continue;
       }
 
       if (route.methods && route.methods.size > 0) {
         const matchesMethod = route.methods.has(req.method);
         if (!matchesMethod) {
-          return;
+          continue;
         }
       }
 
       const func = this.functions.get(route.name);
 
       if (func === undefined) {
-        return;
+        continue;
       }
 
       const isExcluded = func.config.excludedPatterns.some((expression) =>
@@ -170,40 +210,34 @@ export class Router {
       );
 
       if (isExcluded) {
-        return;
+        continue;
       }
 
-      // Check header matching conditions
+      // Check header matching conditions using precompiled matchers
       if (route.header) {
-        for (const [headerName, headerValue] of Object.entries(route.header)) {
-          const normalizedHeaderName = headerName.toLowerCase();
+        for (const [headerName, matcher] of Object.entries(route.header)) {
           // Exclude internal headers from matching semantics
-          if (isInternalHeader(normalizedHeaderName)) {
+          if (isInternalHeader(headerName)) {
             continue;
           }
 
-          const rawValue = req.headers.get(normalizedHeaderName);
+          const rawValue = req.headers.get(headerName);
           const requestHeaderValue = rawValue?.split(", ").join(",");
 
-          if (typeof headerValue === "boolean") {
-            if (headerValue !== Boolean(requestHeaderValue)) {
-              return;
+          if (typeof matcher === "boolean") {
+            if (matcher !== Boolean(requestHeaderValue)) {
+              continue routeLoop;
             }
-          } else if (typeof headerValue === "string") {
+          } else if (matcher instanceof RegExp) {
             if (!requestHeaderValue) {
-              return;
+              continue routeLoop;
             }
 
-            try {
-              const regex = new RegExp(headerValue);
-              if (!regex.test(requestHeaderValue)) {
-                return;
-              }
-            } catch {
-              return;
+            if (!matcher.test(requestHeaderValue)) {
+              continue routeLoop;
             }
           } else {
-            return;
+            continue routeLoop;
           }
         }
       }
@@ -212,9 +246,9 @@ export class Router {
       // We extract and return just the properties that belong in the latter.
       const { config, name, path, source } = route;
 
-      return { config, name, path, source };
-    });
+      functions.push({ config, name, path, source });
+    }
 
-    return functions.filter(Boolean) as FunctionMatch[];
+    return functions;
   }
 }

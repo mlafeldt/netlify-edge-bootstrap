@@ -164,6 +164,12 @@ export const handleRequest = async (
           fetchRewrites?.set(url.origin, passthroughOrigin);
         }
       }
+    } else {
+      // In production, we want to ensure that all requests are made over
+      // HTTPS
+      if (url.protocol === "http:") {
+        url.protocol = "https:";
+      }
     }
 
     const edgeReq = new EdgeRequest(new Request(url, req));

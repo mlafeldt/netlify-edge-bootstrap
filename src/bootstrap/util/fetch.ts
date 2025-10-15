@@ -154,13 +154,18 @@ export const patchFetchToForwardHeaders = (
 // and either cannot get or lose a connection from the pool. This means that sometimes
 // a fetch doesn't reach us at all, it can't establish connection.
 // Our working theory is to temporarily switch to HTTP/1 for passthrough requests.
+let http11Client: Deno.HttpClient;
+export let isHTTP11ClientPatched = false;
 export const patchFetchToForceHTTP11 = (
   rawFetch: typeof globalThis.fetch,
 ) => {
+  if (isHTTP11ClientPatched) {
+    return rawFetch;
+  }
+  isHTTP11ClientPatched = true;
+  http11Client = Deno.createHttpClient({ http1: true, http2: false });
   return (input: URL | Request | string, init?: RequestInit) => {
-    const client = Deno.createHttpClient({ http1: true, http2: false });
-
-    return rawFetch(input, { ...init, client });
+    return rawFetch(input, { ...init, client: http11Client });
   };
 };
 

@@ -11,6 +11,7 @@ export interface InstrumentedLogMetadata {
   functionName?: string;
   requestID?: string;
   spanID?: string;
+  logToken?: string;
 }
 
 export interface NetlifyMetadata {
@@ -19,18 +20,12 @@ export interface NetlifyMetadata {
   spanID?: string;
   type?: LogType;
   url?: string;
+  logToken?: string;
 }
 
 const isStructuredLogger = (logger: any): logger is StructuredLogger => {
   return Boolean(logger?.__netlifyStructuredLogger);
 };
-
-export interface InstrumentedLogMetadata {
-  chain?: FunctionChain;
-  functionName?: string;
-  requestID?: string;
-  spanID?: string;
-}
 
 /**
  * Emits a log line annotated with a metadata object. It can be used for both
@@ -51,7 +46,9 @@ export const instrumentedLog = (
   metadata?: InstrumentedLogMetadata,
 ) => {
   const environment = getEnvironment();
-  const { chain, functionName, requestID, spanID } = metadata ?? {};
+  const { chain, functionName, requestID, spanID, logToken: logToken } =
+    metadata ??
+      {};
 
   if (environment === "production") {
     const metadata: NetlifyMetadata = {
@@ -59,6 +56,10 @@ export const instrumentedLog = (
       requestID: requestID,
       spanID: spanID,
     };
+
+    if (logToken) {
+      metadata.logToken = logToken;
+    }
 
     // If the input is a `StructuredLogger` instance, we know we're dealing
     // with a system log, so we add the right metadata object to the payload.
@@ -133,6 +134,7 @@ export const patchLogger = (logger: Logger) => {
           functionName: executionContext?.functionName,
           requestID: executionContext?.requestID,
           spanID: executionContext?.spanID,
+          logToken: executionContext?.logToken,
         },
       );
     } catch {

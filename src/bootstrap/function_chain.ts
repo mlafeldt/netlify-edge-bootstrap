@@ -25,6 +25,7 @@ import {
   getGeoLocation,
   getIP,
   getLogger,
+  getLogToken,
   getRequestID,
   getSite,
   getSpanID,
@@ -336,6 +337,7 @@ class FunctionChain {
           functionName,
           requestID: this.requestID,
           spanID: this.spanID,
+          logToken: this.logToken,
         },
       );
     };
@@ -383,6 +385,10 @@ class FunctionChain {
 
   get spanID() {
     return getSpanID(this.request);
+  }
+
+  get logToken() {
+    return getLogToken(this.request);
   }
 
   rewrite(url: string | URL) {

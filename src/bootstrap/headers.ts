@@ -41,6 +41,7 @@ export enum InternalHeaders {
   InvocationMetrics = "x-nf-invocation-metrics",
   NFTraceSpanID = "x-nf-trace-span-id",
   NFEdgeFuncEnv = "x-nf-edge-function-env",
+  LogToken = "x-nf-edge-function-log-token",
 }
 
 export enum StandardHeaders {

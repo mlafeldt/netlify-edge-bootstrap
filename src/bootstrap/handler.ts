@@ -58,9 +58,11 @@ globalThis.addEventListener("unhandledrejection", (event) => {
   }
 });
 
+let functions: Functions | null = null;
+
 export const handleRequest = async (
   req: Request,
-  functions: Functions,
+  getFunctions: () => Promise<Functions>,
   {
     fetchRewrites,
     rawLogger = console.log,
@@ -104,10 +106,6 @@ export const handleRequest = async (
 
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
-    const metadata = parseRequestInvocationMetadata(
-      req.headers.get(InternalHeaders.InvocationMetadata),
-    );
-    const router = new Router(functions, metadata);
 
     if (id == null || functionNamesHeader == null) {
       return new Response(
@@ -175,6 +173,11 @@ export const handleRequest = async (
     const edgeReq = new EdgeRequest(new Request(url, req));
 
     setFeatureFlags(edgeReq, featureFlags);
+    populateEnvironment(edgeReq);
+
+    if (!functions) {
+      functions = await getFunctions();
+    }
 
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
@@ -182,6 +185,11 @@ export const handleRequest = async (
     // We don't want to run the same function multiple times in the same chain,
     // so we deduplicate the function names while preserving their order.
     const functionNames = [...new Set(functionNamesHeader.split(","))];
+
+    const metadata = parseRequestInvocationMetadata(
+      req.headers.get(InternalHeaders.InvocationMetadata),
+    );
+    const router = new Router(functions, metadata);
 
     const chain = new FunctionChain({
       functionNames,
@@ -197,8 +205,6 @@ export const handleRequest = async (
       function_names: functionNames,
       url: req.url,
     });
-
-    populateEnvironment(edgeReq);
 
     reqLogger
       .withFields({
@@ -302,4 +308,5 @@ const getInvocationErrorHeader = (error: unknown) => {
 
 export const resetModuleState = () => {
   setHasPopulatedEnvironment(false);
+  functions = null;
 };

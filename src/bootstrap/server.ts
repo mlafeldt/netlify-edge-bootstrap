@@ -2,8 +2,8 @@ import { getEnvironment } from "./environment.ts";
 import { handleRequest } from "./handler.ts";
 import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
-import type { EdgeFunction } from "./edge_function.ts";
 import { parse } from "../vendor/deno.land/std@0.170.0/flags/mod.ts";
+import { Functions } from "./stage_2.ts";
 
 // The timeout imposed by the edge nodes. It's important to keep this in place
 // as a fallback in case we're unable to patch `fetch` to add our own here.
@@ -27,7 +27,7 @@ if (getEnvironment() === "local") {
 patchGlobals();
 
 export const serve = (
-  functions: () => Promise<Record<string, EdgeFunction>>,
+  functions: () => Promise<Functions>,
   onListen?: () => void,
 ) => {
   const serveOptions: Deno.ServeTcpOptions = {
@@ -35,7 +35,6 @@ export const serve = (
       if (typeof onListen === "function") {
         onListen();
       }
-      functionsPromise = functions();
     },
   };
 
@@ -52,14 +51,9 @@ export const serve = (
   // Set the port for the server to listen on
   serveOptions.port = port;
 
-  let functionsPromise: Promise<Record<string, EdgeFunction>>;
-  let funcs: Record<string, EdgeFunction> | undefined;
   const server = Deno.serve(serveOptions, async (req: Request) => {
     try {
-      if (!funcs) {
-        funcs = await functionsPromise;
-      }
-      return await handleRequest(req, funcs, {
+      return await handleRequest(req, functions, {
         fetchRewrites,
         rawLogger: consoleLog,
         requestTimeout: REQUEST_TIMEOUT,

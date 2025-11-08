@@ -91,7 +91,7 @@ export const getEnvironment = () => {
   return "local";
 };
 
-const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
+export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
   if (!hasFlag(req, FeatureFlag.InjectEnvironmentVariablesFromHeader)) {
     return;
   }
@@ -173,8 +173,6 @@ export const populateEnvironment = (req: EdgeRequest) => {
   if (site.url) {
     Deno.env.set("URL", site.url);
   }
-
-  injectEnvironmentVariablesFromHeader(req);
 
   hasPopulatedEnvironment = true;
 };

@@ -14,6 +14,7 @@ import {
 } from "./request.ts";
 import {
   getEnvironment,
+  injectEnvironmentVariablesFromHeader,
   populateEnvironment,
   setHasPopulatedEnvironment,
 } from "./environment.ts";
@@ -70,8 +71,9 @@ export const handleRequest = async (
   }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
+  const logToken = req.headers.get(InternalHeaders.LogToken);
   const environment = getEnvironment();
-  const logger = detachedLogger.withRequestID(id);
+  const logger = detachedLogger.withRequestID(id).withLogToken(logToken);
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
@@ -173,11 +175,14 @@ export const handleRequest = async (
     const edgeReq = new EdgeRequest(new Request(url, req));
 
     setFeatureFlags(edgeReq, featureFlags);
-    populateEnvironment(edgeReq);
+
+    injectEnvironmentVariablesFromHeader(edgeReq);
 
     if (!functions) {
       functions = await getFunctions();
     }
+
+    populateEnvironment(edgeReq);
 
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);

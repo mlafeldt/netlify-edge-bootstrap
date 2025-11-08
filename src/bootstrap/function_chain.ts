@@ -204,6 +204,7 @@ class FunctionChain {
         origin_url: url,
       })
       .withRequestID(this.requestID)
+      .withLogToken(this.logToken)
       .debug(
         "Finished edge function request to origin",
       );

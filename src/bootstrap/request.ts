@@ -101,13 +101,15 @@ export class EdgeRequest extends Request {
     this[internalsSymbol] = internals;
 
     const requestID = this.headers.get(InternalHeaders.RequestID);
+    const logToken = this.headers.get(InternalHeaders.LogToken);
     const logLevel = this.headers.has(InternalHeaders.DebugLogging)
       ? LogLevel.Debug
       : LogLevel.Log;
 
     this[loggerSymbol] = detachedLogger
       .withRequestID(requestID)
-      .withLogLevel(logLevel);
+      .withLogLevel(logLevel)
+      .withLogToken(logToken);
 
     [
       InternalHeaders.AccountInfo,

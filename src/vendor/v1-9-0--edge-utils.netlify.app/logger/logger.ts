@@ -30,6 +30,7 @@ export class StructuredLogger {
   private message: string;
   private rawLogger?: Logger;
   private requestID?: string;
+  private logToken?: string;
   __netlifyStructuredLogger: number;
 
   constructor(
@@ -39,6 +40,7 @@ export class StructuredLogger {
     rawLogger?: Logger,
     logLevel?: LogLevel,
     filter?: Filter,
+    logToken?: string,
   ) {
     this.filter = filter;
     this.fields = fields ?? {};
@@ -46,6 +48,7 @@ export class StructuredLogger {
     this.message = message ?? "";
     this.rawLogger = rawLogger;
     this.requestID = requestID;
+    this.logToken = logToken;
 
     // Value should be equal to the major version
     this.__netlifyStructuredLogger = 1;
@@ -70,6 +73,7 @@ export class StructuredLogger {
         this.rawLogger,
         this.logLevel,
         this.filter,
+        this.logToken,
       ),
     );
   }
@@ -93,6 +97,7 @@ export class StructuredLogger {
         this.rawLogger,
         this.logLevel,
         this.filter,
+        this.logToken,
       ),
     );
   }
@@ -116,6 +121,7 @@ export class StructuredLogger {
         this.rawLogger,
         this.logLevel,
         this.filter,
+        this.logToken,
       ),
     );
   }
@@ -125,6 +131,7 @@ export class StructuredLogger {
       fields: this.fields,
       message: this.message,
       requestID: this.requestID,
+      logToken: this.logToken,
     };
 
     return log;
@@ -147,6 +154,7 @@ export class StructuredLogger {
       this.rawLogger,
       this.logLevel,
       this.filter,
+      this.logToken,
     );
   }
 
@@ -166,6 +174,7 @@ export class StructuredLogger {
       this.rawLogger,
       this.logLevel,
       filter,
+      this.logToken,
     );
   }
 
@@ -177,6 +186,7 @@ export class StructuredLogger {
       this.rawLogger,
       logLevel,
       this.filter,
+      this.logToken,
     );
   }
 
@@ -188,6 +198,7 @@ export class StructuredLogger {
       logger,
       this.logLevel,
       this.filter,
+      this.logToken,
     );
   }
 
@@ -203,6 +214,23 @@ export class StructuredLogger {
       this.rawLogger,
       this.logLevel,
       this.filter,
+      this.logToken,
+    );
+  }
+
+  withLogToken(logToken: string | null) {
+    if (logToken === null) {
+      return this;
+    }
+
+    return new StructuredLogger(
+      this.message,
+      this.fields,
+      this.requestID,
+      this.rawLogger,
+      this.logLevel,
+      this.filter,
+      logToken,
     );
   }
 }

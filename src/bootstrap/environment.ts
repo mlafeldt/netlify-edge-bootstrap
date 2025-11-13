@@ -82,6 +82,7 @@ const injectAIEnvironment = (
 
 // Read this before we read any user-defined variables.
 const environment = Deno.env.get(NETLIFY_ENVIRONMENT);
+Deno.env.delete(NETLIFY_ENVIRONMENT);
 
 export const getEnvironment = () => {
   if (Deno.env.get("DENO_DEPLOYMENT_ID") || (environment === "production")) {
@@ -111,10 +112,6 @@ export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
       .debug("Environment variables header is not a valid object");
     return;
   }
-
-  // We don't want to expose this variable to user code. We've already read it,
-  // so we can delete it from the environment.
-  Deno.env.delete(NETLIFY_ENVIRONMENT);
 
   for (const [key, value] of Object.entries(envVars)) {
     if (typeof value === "string") {

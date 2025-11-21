@@ -3,8 +3,10 @@ import { FunctionChain } from "../function_chain.ts";
 import { StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
 import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
+import { NimbleConsole } from "./console.ts";
 
 type LogType = "systemJSON";
+export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface InstrumentedLogMetadata {
   chain?: FunctionChain;
@@ -12,6 +14,7 @@ export interface InstrumentedLogMetadata {
   requestID?: string;
   spanID?: string;
   logToken?: string;
+  logLevel?: LogLevel;
 }
 
 export interface NetlifyMetadata {
@@ -21,6 +24,7 @@ export interface NetlifyMetadata {
   type?: LogType;
   url?: string;
   logToken?: string;
+  logLevel?: LogLevel;
 }
 
 const isStructuredLogger = (logger: any): logger is StructuredLogger => {
@@ -46,15 +50,22 @@ export const instrumentedLog = (
   metadata?: InstrumentedLogMetadata,
 ) => {
   const environment = getEnvironment();
-  const { chain, functionName, requestID, spanID, logToken: logToken } =
-    metadata ??
-      {};
+  const {
+    chain,
+    functionName,
+    requestID,
+    spanID,
+    logToken: logToken,
+    logLevel,
+  } = metadata ??
+    {};
 
   if (environment === "production") {
     const metadata: NetlifyMetadata = {
       edgeFunctionName: functionName,
       requestID: requestID,
       spanID: spanID,
+      logLevel,
     };
 
     if (logToken) {
@@ -99,7 +110,11 @@ export const instrumentedLog = (
       metadata.url = url.toString();
     }
 
-    return logger(JSON.stringify({ __nfmeta: metadata }), ...data);
+    if (!(globalThis.console instanceof NimbleConsole)) {
+      return logger(JSON.stringify({ __nfmeta: metadata }), ...data);
+    } else {
+      return logger(...data);
+    }
   }
 
   // If this is a system log and we're not in the production environment,
@@ -123,22 +138,26 @@ export const instrumentedLog = (
 
 export type Logger = (...data: unknown[]) => void;
 
-export const patchLogger = (logger: Logger) => {
-  return (...data: unknown[]) => {
+export const patchLogger = <Fn extends (...args: any[]) => any>(
+  logger: Fn,
+  logLevel?: LogLevel,
+) => {
+  return (...data: Parameters<Fn>) => {
     try {
       const executionContext = getExecutionContextAndLogFailure(
         "logger",
       );
 
       return instrumentedLog(
-        logger,
-        data,
+        logger as Logger,
+        data as unknown[],
         {
           chain: executionContext?.chain,
           functionName: executionContext?.functionName,
           requestID: executionContext?.requestID,
           spanID: executionContext?.spanID,
           logToken: executionContext?.logToken,
+          logLevel,
         },
       );
     } catch {

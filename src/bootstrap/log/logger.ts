@@ -21,10 +21,16 @@ const rawConsole = {
 export const instrumentedConsole = {
   // deno-lint-ignore no-explicit-any
   error: (metadata: InstrumentedLogMetadata, ...data: any[]) =>
-    instrumentedLog(rawConsole.error, data, metadata),
+    instrumentedLog(rawConsole.error, data, {
+      ...metadata,
+      logLevel: metadata.logLevel ?? "error",
+    }),
   // deno-lint-ignore no-explicit-any
   log: (metadata: InstrumentedLogMetadata, ...data: any[]) =>
-    instrumentedLog(rawConsole.log, data, metadata),
+    instrumentedLog(rawConsole.log, data, {
+      ...metadata,
+      logLevel: metadata.logLevel ?? "info",
+    }),
 };
 
 // A system logger that the raw console methods.

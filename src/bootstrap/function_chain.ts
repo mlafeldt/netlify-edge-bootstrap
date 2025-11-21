@@ -339,6 +339,7 @@ class FunctionChain {
           requestID: this.requestID,
           spanID: this.spanID,
           logToken: this.logToken,
+          logLevel: "info",
         },
       );
     };

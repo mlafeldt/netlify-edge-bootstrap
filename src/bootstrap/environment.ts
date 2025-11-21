@@ -93,10 +93,6 @@ export const getEnvironment = () => {
 };
 
 export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
-  if (!hasFlag(req, FeatureFlag.InjectEnvironmentVariablesFromHeader)) {
-    return;
-  }
-
   let envVars: Record<string, string> | undefined;
   try {
     envVars = GetEnvFromEdgeFuncEnvHeader(req.headers);

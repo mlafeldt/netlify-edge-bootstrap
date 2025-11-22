@@ -23,8 +23,29 @@ interface InspectOptions {
   colors?: boolean | undefined;
 }
 
-const DenoStdoutWriteSync = Deno.stdout.writeSync.bind(Deno.stdout);
-const DenoStderrWriteSync = Deno.stderr.writeSync.bind(Deno.stderr);
+// this vport is created via the flag `--vmm-console-ports="app:file:app.log"` which is supplied in the config on the node
+// eventually we will move to using the symlink named within the flag (`app`) once this feature is implemented
+const VPORT_LOG_PATH = "/dev/vport0p1";
+
+const getLogDeviceWriter = () => {
+  try {
+    Deno.statSync(VPORT_LOG_PATH);
+    const fileHandle = Deno.openSync(VPORT_LOG_PATH, {
+      append: true,
+      write: true,
+    });
+
+    return fileHandle.writeSync.bind(fileHandle);
+  } catch (_error) {
+    return;
+  }
+};
+
+const logDeviceWriteSync = getLogDeviceWriter();
+const DenoStdoutWriteSync = logDeviceWriteSync ??
+  Deno.stdout.writeSync.bind(Deno.stdout);
+const DenoStderrWriteSync = logDeviceWriteSync ??
+  Deno.stderr.writeSync.bind(Deno.stderr);
 
 const encoder = new TextEncoder();
 const formatArguments = (

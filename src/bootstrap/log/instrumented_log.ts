@@ -1,6 +1,6 @@
 import { getEnvironment } from "../environment.ts";
 import { FunctionChain } from "../function_chain.ts";
-import { StructuredLogger } from "./logger.ts";
+import { type StructuredLogger } from "./logger.ts";
 import { InternalHeaders } from "../headers.ts";
 import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 import { NimbleConsole } from "./console.ts";

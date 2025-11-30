@@ -8,9 +8,15 @@ I gathered all information contained here by reading the source code of Netlify'
 
 ## Usage
 
-(Make sure to [install Deno](https://docs.deno.com/runtime/getting_started/installation/) version 1.22 or higher first.)
+**Deno version requirement: >= 1.22, < 2.0**
 
-Download current bootstrap code to `src` folder:
+This project uses `deno vendor` which was deprecated in 1.45 and removed in Deno 2.0.
+
+(See [Deno installation](https://docs.deno.com/runtime/getting_started/installation/) and [version archive](https://github.com/denoland/deno/releases).)
+
+### Commands
+
+Download bootstrap code to `src`:
 
 ```console
 make bootstrap

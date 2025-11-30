@@ -1,4 +1,4 @@
-# netlify-edge-bootstrap
+# ⚡ netlify-edge-bootstrap
 
 This repo contains the "closed-source" [bootstrap code](src/bootstrap) used to initialize the environment of Netlify Edge Functions as well as the [bundler code](src/bundler) used for deploying them to Deno Deploy.
 
@@ -6,7 +6,7 @@ While the [Edge Functions API](https://docs.netlify.com/build/edge-functions/api
 
 I gathered all information contained here by reading the source code of Netlify's [CLI](https://github.com/netlify/cli/tree/main/src/lib/edge-functions) & [edge-bundler](https://github.com/netlify/build/tree/main/packages/edge-bundler) and tinkering with `deno vendor`.
 
-## Usage
+## 🛠️ Usage
 
 **Deno version requirement: >= 1.22, < 2.0**
 
@@ -14,7 +14,7 @@ This project uses `deno vendor` which was deprecated in 1.45 and removed in Deno
 
 (See [Deno installation](https://docs.deno.com/runtime/getting_started/installation/) and [version archive](https://github.com/denoland/deno/releases).)
 
-### Commands
+### 💻 Commands
 
 Download bootstrap code to `src`:
 
@@ -51,7 +51,7 @@ Bundle functions like Netlify does before deploying to Deno Deploy:
 make bundle
 ```
 
-## Architecture
+## 🏗️ Architecture
 
 Netlify deploys edge functions to [Deno Subhosting](https://deno.com/subhosting) as two-layer [eszip](https://github.com/denoland/eszip) bundles:
 

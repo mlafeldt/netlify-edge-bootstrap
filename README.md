@@ -4,7 +4,7 @@ This repo contains the "closed-source" [bootstrap code](src/bootstrap) used to i
 
 While the [Edge Functions API](https://docs.netlify.com/build/edge-functions/api/) is decently documented, I was still curious how Netlify actually integrates [Deno](https://deno.com/) as a JavaScript/TypeScript runtime behind the scenes. To that end, I extracted the code and created a [playground](playground) that can run functions locally (similar to `netlify dev`).
 
-I gathered all information contained here by reading the source code of Netlify's [CLI](https://github.com/netlify/cli/tree/main/src/lib/edge-functions) & [Edge Bundler](https://github.com/netlify/edge-bundler) and tinkering with `deno vendor`.
+I gathered all information contained here by reading the source code of Netlify's [CLI](https://github.com/netlify/cli/tree/main/src/lib/edge-functions) & [Edge Bundler](https://github.com/netlify/build/tree/main/packages/edge-bundler) and tinkering with `deno vendor`.
 
 ## Usage
 

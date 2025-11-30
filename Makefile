@@ -1,6 +1,6 @@
 DENO    ?= deno
 CURL    ?= curl
-ESZIP   ?= $(DENO) run --allow-read=. --allow-write=. --allow-net=deno.land --no-check https://deno.land/x/eszip@v0.30.0/eszip.ts
+ESZIP   ?= $(DENO) run --allow-read --allow-write=. --allow-env --allow-net=deno.land --no-check https://deno.land/x/eszip@v0.105.0/eszip.ts
 APP_URL ?= https://edge.netlify.com
 
 playground:

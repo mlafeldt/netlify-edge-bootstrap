@@ -12,6 +12,7 @@
   "imports": {
     "https://edge.netlify.com/": "./src/",
     "netlify:edge": "./src/index.ts",
-    "netlify:bootstrap-stage2": "./playground/stage2.ts"
+    "netlify:bootstrap-stage2": "./playground/stage2.ts",
+    "./src/vendor/deno.land/": "https://deno.land/"
   }
 }

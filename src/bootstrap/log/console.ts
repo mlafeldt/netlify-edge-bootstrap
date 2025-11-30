@@ -3,6 +3,18 @@ import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 import { getEnvironment } from "../environment.ts";
 import { LogLevel, NetlifyMetadata } from "./instrumented_log.ts";
 
+const bind = Function.bind.call.bind(Function.bind) as <
+  F extends (this: any, ...args: any[]) => any,
+  T,
+>(
+  fn: F,
+  thisArg: T,
+) => (...args: Parameters<F>) => ReturnType<F>;
+
+const encoder = new TextEncoder();
+const encode = bind(encoder.encode, encoder);
+const stringify = bind(JSON.stringify, JSON);
+
 interface InspectOptions {
   /**
    * If `true`, object's non-enumerable symbols and properties are included in the formatted result.
@@ -23,31 +35,6 @@ interface InspectOptions {
   colors?: boolean | undefined;
 }
 
-// this vport is created via the flag `--vmm-console-ports="app:file:app.log"` which is supplied in the config on the node
-// eventually we will move to using the symlink named within the flag (`app`) once this feature is implemented
-const VPORT_LOG_PATH = "/dev/vport0p1";
-
-const getLogDeviceWriter = () => {
-  try {
-    Deno.statSync(VPORT_LOG_PATH);
-    const fileHandle = Deno.openSync(VPORT_LOG_PATH, {
-      append: true,
-      write: true,
-    });
-
-    return fileHandle.writeSync.bind(fileHandle);
-  } catch (_error) {
-    return;
-  }
-};
-
-const logDeviceWriteSync = getLogDeviceWriter();
-const DenoStdoutWriteSync = logDeviceWriteSync ??
-  Deno.stdout.writeSync.bind(Deno.stdout);
-const DenoStderrWriteSync = logDeviceWriteSync ??
-  Deno.stderr.writeSync.bind(Deno.stderr);
-
-const encoder = new TextEncoder();
 const formatArguments = (
   message?: any,
   optionalParams: any[] = [],
@@ -61,25 +48,9 @@ const formatArguments = (
 
 function generateOutput(data: string, logLevel: LogLevel): Uint8Array {
   const preamble = generatePreamble();
-  return encoder.encode(
-    JSON.stringify({ msg: preamble + " " + data, level: logLevel }) + "\n",
+  return encode(
+    stringify({ msg: preamble + " " + data, level: logLevel }) + "\n",
   );
-}
-
-function writeAllToStdout(data: string, logLevel: LogLevel) {
-  const output = generateOutput(data, logLevel);
-  let written = 0;
-  while (written < output.length) {
-    written += DenoStdoutWriteSync(output.subarray(written));
-  }
-}
-
-function writeAllToStderr(data: string, logLevel: LogLevel) {
-  const output = generateOutput(data, logLevel);
-  let written = 0;
-  while (written < output.length) {
-    written += DenoStderrWriteSync(output.subarray(written));
-  }
 }
 
 function generatePreamble() {
@@ -113,7 +84,7 @@ function generatePreamble() {
       metadata.url = url.toString();
     }
 
-    return JSON.stringify({ __nfmeta: metadata });
+    return stringify({ __nfmeta: metadata });
   }
 
   if (edgeFunctionName) {
@@ -126,18 +97,63 @@ let groupIndent = "";
 const groupIndentationWidth = 2;
 const times = new Map<string, number>();
 
+const getWriteStdoutSync = () => Deno.stdout.writeSync.bind(Deno.stdout);
+const getWriteStderrSync = () => Deno.stderr.writeSync.bind(Deno.stderr);
+
+export const resetConsoleState = () => {
+  counts.clear();
+  groupIndent = "";
+  times.clear();
+};
+
 export class NimbleConsole implements Console {
-  declare trace: (message?: any, ...optionalParams: any[]) => void;
+  #writeAll(
+    data: string,
+    logLevel: LogLevel,
+    writeSync: (data: Uint8Array) => number = getWriteStdoutSync(),
+  ) {
+    const output = generateOutput(data, logLevel);
+    let written = 0;
+    while (written < output.length) {
+      written += writeSync(output.subarray(written));
+    }
+  }
+
+  #bindMethods() {
+    this.log = bind(this.log, this);
+    this.assert = bind(this.assert, this);
+    this.clear = bind(this.clear, this);
+    this.count = bind(this.count, this);
+    this.countReset = bind(this.countReset, this);
+    this.debug = bind(this.debug, this);
+    this.dir = bind(this.dir, this);
+    this.dirxml = bind(this.dirxml, this);
+    this.error = bind(this.error, this);
+    this.group = bind(this.group, this);
+    this.groupCollapsed = bind(this.groupCollapsed, this);
+    this.groupEnd = bind(this.groupEnd, this);
+    this.info = bind(this.info, this);
+    this.table = bind(this.table, this);
+    this.time = bind(this.time, this);
+    this.timeEnd = bind(this.timeEnd, this);
+    this.timeLog = bind(this.timeLog, this);
+    this.warn = bind(this.warn, this);
+    this.profile = bind(this.profile, this);
+    this.profileEnd = bind(this.profileEnd, this);
+    this.timeStamp = bind(this.timeStamp, this);
+    this.trace = bind(this.trace, this);
+  }
 
   get [Symbol.toStringTag]() {
-    return "Console";
+    return "console";
   }
 
   constructor() {
+    this.#bindMethods();
   }
 
   log(message?: any, ...optionalParams: any[]): void {
-    writeAllToStdout(
+    this.#writeAll(
       formatArguments(message, optionalParams),
       "info",
     );
@@ -156,12 +172,12 @@ export class NimbleConsole implements Console {
     const formattedMessage = formatArguments(message, optionalParams);
 
     if (formattedMessage === "") {
-      writeAllToStdout(preamble, "error");
+      this.#writeAll(preamble, "error");
       return;
     }
 
     const separator = message === undefined ? " " : ": ";
-    writeAllToStdout(preamble + separator + formattedMessage, "error");
+    this.#writeAll(preamble + separator + formattedMessage, "error");
   }
 
   // The `clear` method is a no-op for structured logging, as clearing the console
@@ -179,18 +195,18 @@ export class NimbleConsole implements Console {
       count++;
     }
     counts.set(label, count);
-    writeAllToStdout(`${label}: ${count}`, "info");
+    this.#writeAll(`${label}: ${count}`, "info");
   }
 
   countReset(label: string = "default"): void {
     if (!(counts.has(label))) {
-      writeAllToStdout(`Count for '${label}' does not exist`, "warn");
+      this.#writeAll(`Count for '${label}' does not exist`, "warn");
       return;
     }
     counts.delete(label);
   }
   debug(message?: any, ...optionalParams: any[]) {
-    writeAllToStdout(
+    this.#writeAll(
       formatArguments(message, optionalParams),
       "debug",
     );
@@ -199,29 +215,30 @@ export class NimbleConsole implements Console {
     obj?: any,
     { colors = false, depth = 2, showHidden = false }: InspectOptions = {},
   ): void {
-    writeAllToStdout(Deno.inspect(obj, { colors, depth, showHidden }), "info");
+    this.#writeAll(Deno.inspect(obj, { colors, depth, showHidden }), "info");
   }
   dirxml(...data: any[]): void {
-    writeAllToStdout(
+    this.#writeAll(
       data.length === 0 ? "" : format(...data),
       "info",
     );
   }
   error(message?: any, ...optionalParams: any[]): void {
-    writeAllToStderr(
+    this.#writeAll(
       formatArguments(message, optionalParams),
       "error",
+      getWriteStderrSync(),
     );
   }
   group(...label: any[]): void {
     if (label.length > 0) {
-      writeAllToStdout(format(...label), "info");
+      this.#writeAll(format(...label), "info");
     }
     groupIndent += " ".repeat(groupIndentationWidth);
   }
   groupCollapsed(...label: any[]): void {
     if (label.length > 0) {
-      writeAllToStdout(format(...label), "info");
+      this.#writeAll(format(...label), "info");
     }
     groupIndent += " ".repeat(groupIndentationWidth);
   }
@@ -232,7 +249,7 @@ export class NimbleConsole implements Console {
     );
   }
   info(message?: any, ...optionalParams: any[]): void {
-    writeAllToStdout(
+    this.#writeAll(
       formatArguments(message, optionalParams),
       "info",
     );
@@ -345,12 +362,12 @@ export class NimbleConsole implements Console {
       makeBorder("└", "┴", "┘"),
     ];
 
-    writeAllToStdout(lines.join("\n"), "info");
+    this.#writeAll(lines.join("\n"), "info");
   }
   time(label: string = "default"): void {
     label = label + "";
     if (times.has(label)) {
-      writeAllToStdout(
+      this.#writeAll(
         `Label '${label}' already exists for console.time()`,
         "warn",
       );
@@ -362,7 +379,7 @@ export class NimbleConsole implements Console {
     label = label + "";
     const time = times.get(label);
     if (time === undefined) {
-      writeAllToStdout(
+      this.#writeAll(
         `No such label '${label}' for console.timeEnd()`,
         "warn",
       );
@@ -370,29 +387,30 @@ export class NimbleConsole implements Console {
     }
     const duration = performance.now() - time;
     times.delete(label);
-    writeAllToStdout(`${label}: ${duration.toFixed(3)}ms`, "info");
+    this.#writeAll(`${label}: ${duration.toFixed(3)}ms`, "info");
   }
   timeLog(label: string = "default", ...data: any[]): void {
     label = label + "";
     const time = times.get(label);
     if (time === undefined) {
-      writeAllToStdout(
+      this.#writeAll(
         `No such label '${label}' for console.timeLog()`,
         "warn",
       );
       return;
     }
     const duration = performance.now() - time;
-    writeAllToStdout(
+    this.#writeAll(
       `${label}: ${duration.toFixed(3)}ms ` +
         format(...data),
       "info",
     );
   }
   warn(message?: any, ...optionalParams: any[]): void {
-    writeAllToStderr(
+    this.#writeAll(
       formatArguments(message, optionalParams),
       "warn",
+      getWriteStderrSync(),
     );
   }
   profile(_label?: string): void {
@@ -404,23 +422,23 @@ export class NimbleConsole implements Console {
   timeStamp(_label?: string): void {
     // no-op
   }
-}
 
-NimbleConsole.prototype.trace = function trace(
-  message?: any,
-  ...optionalParams: any[]
-): void {
-  const err = new Error();
-  err.name = "Trace";
+  trace(
+    message?: any,
+    ...optionalParams: any[]
+  ): void {
+    const err = new Error();
+    err.name = "Trace";
 
-  if (message !== undefined) {
-    err.message = format(message, ...optionalParams);
+    if (message !== undefined) {
+      err.message = format(message, ...optionalParams);
+    }
+
+    Error.captureStackTrace(
+      err,
+      this.trace,
+    );
+
+    this.#writeAll(err.stack + "", "info");
   }
-
-  Error.captureStackTrace(
-    err,
-    trace,
-  );
-
-  writeAllToStdout(err.stack + "", "info");
-};
+}

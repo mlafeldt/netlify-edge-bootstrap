@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
 // Structured similarly to Go's cookie.go
 // https://github.com/golang/go/blob/master/src/net/http/cookie.go

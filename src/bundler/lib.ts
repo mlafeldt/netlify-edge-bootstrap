@@ -1,7 +1,7 @@
-import { load } from "https://deno.land/x/eszip@v0.18.0/loader.ts";
-import { LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
-import * as path from "https://deno.land/std@0.170.0/path/mod.ts";
-import { retryAsync } from "https://deno.land/x/retry@v2.0.0/mod.ts";
+import { load } from "../../src/vendor/deno.land/x/eszip@v0.18.0/loader.ts";
+import { LoadResponse } from "../../src/vendor/deno.land/x/eszip@v0.18.0/mod.ts";
+import * as path from "../../src/vendor/deno.land/std@0.170.0/path/mod.ts";
+import { retryAsync } from "../../src/vendor/deno.land/x/retry@v2.0.0/mod.ts";
 
 const inlineModule = (
   specifier: string,

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 import { Token } from './token.js';
 import { DisplayString } from './displaystring.js';
 /**

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
 
 export const ERROR_WHILE_MAPPING_MESSAGE = "Threw while mapping.";

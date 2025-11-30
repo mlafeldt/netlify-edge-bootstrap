@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 type Logger = (...data: unknown[]) => void;
 
 export type Filter = (

@@ -1,4 +1,3 @@
-import { FeatureFlag, hasFlag } from "./feature_flags.ts";
 import { getAIGateway, getLogger, getPurgeAPIToken } from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
 import { GetEnvFromEdgeFuncEnvHeader } from "./get_env_from_edge_func_env_header.ts";

@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // Copyright 2018-2022 the Deno authors. All rights reserved. MIT license.
 /**
  * Formats the given date to IMF date time format. (Reference:

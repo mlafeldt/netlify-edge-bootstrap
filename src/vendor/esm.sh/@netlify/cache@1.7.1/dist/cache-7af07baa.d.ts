@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 type Base64Encoder = (input: string) => string;
 type Logger = (...args: any[]) => void;
 interface EnvironmentOptions {

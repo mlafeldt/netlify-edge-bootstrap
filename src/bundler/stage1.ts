@@ -1,4 +1,7 @@
-import { build, LoadResponse } from "https://deno.land/x/eszip@v0.18.0/mod.ts";
+import {
+  build,
+  LoadResponse,
+} from "../../src/vendor/deno.land/x/eszip@v0.18.0/mod.ts";
 
 import { STAGE1_SPECIFIER, STAGE2_SPECIFIER, virtualRoot } from "../consts.ts";
 import { inlineModule, loadFromVirtualRoot, loadWithRetry } from "./lib.ts";

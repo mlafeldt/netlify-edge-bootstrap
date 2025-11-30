@@ -1,5 +1,6 @@
 import {
   fromFileUrl,
+  normalize,
   resolve,
 } from "../../vendor/deno.land/std@0.170.0/path/mod.ts";
 
@@ -21,6 +22,16 @@ const MARKER_FUNCTION_NAME = "runFunction";
 // the request handler, since for any call stacks deeper than this limit we
 // lose some information and therefore we may get a false negative.
 const STACK_TRACE_LIMIT = 50;
+
+// CallSite.getFileName() may return a file URL (Node compat/Vitest) or a
+// platform path (native Deno). Normalize both so comparisons work cross-platform and cross-runtime.
+const normalizePath = (path: string) => {
+  try {
+    return normalize(fromFileUrl(path));
+  } catch {
+    return normalize(path);
+  }
+};
 
 interface CallSite {
   getFunctionName(): string | null;
@@ -48,6 +59,8 @@ export class StackTracer extends OriginalError {
 
     super();
 
+    const normalizedFunctionChainPath = normalizePath(functionChainPath);
+
     this[depth] = 0;
     this[inHandler] = false;
 
@@ -55,8 +68,11 @@ export class StackTracer extends OriginalError {
       this[depth] = callSites.length;
 
       for (const callSite of callSites) {
+        const callSitePath = callSite.getFileName();
+
         if (
-          callSite.getFileName() === functionChainPath &&
+          callSitePath &&
+          normalizePath(callSitePath) === normalizedFunctionChainPath &&
           callSite.getFunctionName() === MARKER_FUNCTION_NAME
         ) {
           this[inHandler] = true;

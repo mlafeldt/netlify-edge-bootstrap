@@ -8,12 +8,19 @@ import {
   type InstrumentedLogMetadata,
 } from "./instrumented_log.ts";
 
-// A reference to the original console methods that will not go through the
-// request tracking logic. We want to use these for log lines emitted by the
-// bootstrap layer, leaving the patched methods for user code.
-const rawConsole = {
-  error: globalThis.console.error,
-  log: globalThis.console.log,
+const bindRawConsole = (consoleRef: Console) => ({
+  error: consoleRef.error.bind(consoleRef),
+  log: consoleRef.log.bind(consoleRef),
+});
+
+// A reference to console methods that will not go through the request tracking
+// logic. We want to use these for log lines emitted by the bootstrap layer,
+// leaving the patched methods for user code. This can be re-bound after
+// swapping out `globalThis.console` (e.g. when installing NimbleConsole).
+let rawConsole = bindRawConsole(globalThis.console);
+
+export const setRawConsole = (consoleRef: Console) => {
+  rawConsole = bindRawConsole(consoleRef);
 };
 
 // A set of console methods that emit instrumented log lines (i.e. annotated

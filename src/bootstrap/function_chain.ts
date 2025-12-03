@@ -43,6 +43,7 @@ import {
 import { executionStore } from "./util/execution_context.ts";
 import { isRedirect } from "./util/redirect.ts";
 import { FeatureFlag, hasFlag } from "./feature_flags.ts";
+import { env } from "../runtime/env.ts";
 
 interface FunctionChainOptions {
   cookies?: CookieStore;
@@ -69,8 +70,8 @@ interface RunFunctionOptions {
   previousRewrites?: Set<string>;
 }
 
-const DENO_REGION = Deno.env.get("DENO_REGION") ?? "";
-const DENO_RUNNER_IP = Deno.env.get("DENO_RUNNER_IP") ?? "";
+const DENO_REGION = env.get("DENO_REGION") ?? "";
+const DENO_RUNNER_IP = env.get("DENO_RUNNER_IP") ?? "";
 
 class FunctionChain {
   cacheMode: CacheMode;

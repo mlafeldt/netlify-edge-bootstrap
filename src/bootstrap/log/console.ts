@@ -1,7 +1,7 @@
 import { format } from "node:util";
 import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 import { getEnvironment } from "../environment.ts";
-import { LogLevel, NetlifyMetadata } from "./instrumented_log.ts";
+import { type LogLevel, type NetlifyMetadata } from "./instrumented_log.ts";
 
 const bind = Function.bind.call.bind(Function.bind) as <
   F extends (this: any, ...args: any[]) => any,

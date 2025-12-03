@@ -1,6 +1,7 @@
 import { getAIGateway, getLogger, getPurgeAPIToken } from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
 import { GetEnvFromEdgeFuncEnvHeader } from "./get_env_from_edge_func_env_header.ts";
+import { env } from "../runtime/env.ts";
 
 let hasPopulatedEnvironment = false;
 
@@ -52,12 +53,11 @@ const injectAIEnvironment = (
     );
 
     if (!initialEnv) {
-      initialEnv = Deno.env.toObject();
+      initialEnv = env.toObject();
     }
 
-    Deno.env.set(NETLIFY_AI_GATEWAY_BASE_URL_VAR, aiGatewayBaseURL);
-    Deno.env.set(NETLIFY_AI_GATEWAY_KEY_VAR, data.token);
-
+    env.set(NETLIFY_AI_GATEWAY_BASE_URL_VAR, aiGatewayBaseURL);
+    env.set(NETLIFY_AI_GATEWAY_KEY_VAR, data.token);
     const providersToProcess =
       (Array.isArray(data.envVars) && data.envVars.length > 0)
         ? data.envVars
@@ -68,8 +68,8 @@ const injectAIEnvironment = (
         continue;
       }
 
-      Deno.env.set(key, data.token);
-      Deno.env.set(url, aiGatewayBaseURL);
+      env.set(key, data.token);
+      env.set(url, aiGatewayBaseURL);
     }
   } catch (error) {
     console.error(
@@ -80,11 +80,11 @@ const injectAIEnvironment = (
 };
 
 // Read this before we read any user-defined variables.
-const environment = Deno.env.get(NETLIFY_ENVIRONMENT);
-Deno.env.delete(NETLIFY_ENVIRONMENT);
+const environment = env.get(NETLIFY_ENVIRONMENT);
+env.delete(NETLIFY_ENVIRONMENT);
 
 export const getEnvironment = () => {
-  if (Deno.env.get("DENO_DEPLOYMENT_ID") || (environment === "production")) {
+  if (env.get("DENO_DEPLOYMENT_ID") || (environment === "production")) {
     return "production";
   }
 
@@ -110,7 +110,7 @@ export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
 
   for (const [key, value] of Object.entries(envVars)) {
     if (typeof value === "string") {
-      Deno.env.set(key, value);
+      env.set(key, value);
     } else {
       getLogger(req)
         .withFields({ key, value_type: typeof value })
@@ -136,7 +136,7 @@ const populateEphemeralEnvironment = (
   // Purge API tokens can change per request
   const purgeAPIToken = getPurgeAPIToken(req);
   if (purgeAPIToken) {
-    Deno.env.set("NETLIFY_PURGE_API_TOKEN", purgeAPIToken);
+    env.set("NETLIFY_PURGE_API_TOKEN", purgeAPIToken);
   }
 };
 
@@ -155,15 +155,15 @@ export const populateEnvironment = (req: EdgeRequest) => {
   }
 
   if (site.id) {
-    Deno.env.set("SITE_ID", site.id);
+    env.set("SITE_ID", site.id);
   }
 
   if (site.name) {
-    Deno.env.set("SITE_NAME", site.name);
+    env.set("SITE_NAME", site.name);
   }
 
   if (site.url) {
-    Deno.env.set("URL", site.url);
+    env.set("URL", site.url);
   }
 
   hasPopulatedEnvironment = true;

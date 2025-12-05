@@ -57,6 +57,8 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     context: headers.get(InternalHeaders.DeployContext) ?? undefined,
     id: headers.get(InternalHeaders.DeployID) ?? undefined,
     published: headers.get(InternalHeaders.DeployIsPublished) === "1",
+    skewProtectionToken: headers.get(InternalHeaders.SkewProtectionToken) ??
+      undefined,
   };
 
   return {
@@ -130,6 +132,7 @@ export class EdgeRequest extends Request {
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
       InternalHeaders.SiteInfo,
+      InternalHeaders.SkewProtectionToken,
     ].forEach((header) => {
       this.headers.delete(header);
     });

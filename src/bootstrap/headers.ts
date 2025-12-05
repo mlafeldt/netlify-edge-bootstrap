@@ -38,10 +38,12 @@ export enum InternalHeaders {
   PassthroughTiming = "x-nf-passthrough-timing",
   PurgeAPIToken = "x-nf-purge-api-token",
   FetchTiming = "x-nf-fetch-timing",
+  FetchCacheStatus = "x-nf-fetch-cache-status",
   InvocationMetrics = "x-nf-invocation-metrics",
   NFTraceSpanID = "x-nf-trace-span-id",
   NFEdgeFuncEnv = "x-nf-edge-function-env",
   LogToken = "x-nf-edge-function-log-token",
+  SkewProtectionToken = "x-nf-skew-protection-token",
 }
 
 export enum StandardHeaders {

@@ -67,12 +67,14 @@ export const patchFetchToTrackSubrequests = (
 
     const call = chain.metrics.startFetch(url.host);
 
+    let result: Response | undefined;
+
     try {
-      const result = await rawFetch(...args);
+      result = await rawFetch(...args);
 
       return result;
     } finally {
-      call.end();
+      call.end(result?.headers.get("cache-status"));
     }
   };
 };

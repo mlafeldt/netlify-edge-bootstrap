@@ -30,6 +30,7 @@ export interface Deploy {
   id?: string;
   context?: string;
   published: boolean;
+  skewProtectionToken?: string;
 }
 
 export interface Context {

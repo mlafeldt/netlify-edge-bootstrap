@@ -4,6 +4,7 @@ interface FetchCall {
   host?: string;
   start: number;
   end?: number;
+  cacheStatus?: string | null | undefined;
 }
 
 export enum Operations {
@@ -49,8 +50,9 @@ export class RequestMetrics {
       host,
       start: performance.now(),
     };
-    const end = () => {
+    const end = (cacheStatus: string | null | undefined) => {
       entry.end = performance.now();
+      entry.cacheStatus = cacheStatus;
     };
 
     this.fetchCalls.push(entry);
@@ -60,15 +62,56 @@ export class RequestMetrics {
 
   getFetchTiming() {
     const fetchTiming: string[] = [];
+    let passthroughCount = 0;
+    let fetchCount = 0;
 
     for (const call of this.fetchCalls) {
-      const id = call.host ? `host=${call.host}` : "passthrough";
+      let desc = "";
+      let name = "";
+      if (call.host) {
+        fetchCount++;
+        desc = call.host;
+        name = `f${fetchCount}`;
+      } else {
+        passthroughCount++;
+        name = `p${passthroughCount}`;
+      }
+
       const duration = (call.end ?? performance.now()) - call.start;
 
-      fetchTiming.push(`${id};dur=${RequestMetrics.formatDuration(duration)}`);
+      fetchTiming.push(
+        `${name};dur=${RequestMetrics.formatDuration(duration)}${
+          desc ? `;desc=${desc}` : ""
+        }`,
+      );
     }
 
     return fetchTiming;
+  }
+
+  getFetchCacheStatus() {
+    const cacheStatuses: string[] = [];
+    let passthroughCount = 0;
+    let fetchCount = 0;
+
+    for (const call of this.fetchCalls) {
+      if (call.cacheStatus) {
+        let desc = "";
+        let name = "";
+        if (call.host) {
+          fetchCount++;
+          desc = call.host;
+          name = `f${fetchCount}`;
+        } else {
+          passthroughCount++;
+          name = `p${passthroughCount}`;
+        }
+
+        cacheStatuses.push(`${call.cacheStatus};detail=${name}`);
+      }
+    }
+
+    return cacheStatuses;
   }
 
   // Registers a generic operation and returns the allowance for this type of
@@ -103,6 +146,10 @@ export class RequestMetrics {
 
     for (const fetchTiming of this.getFetchTiming()) {
       headers.append(InternalHeaders.FetchTiming, fetchTiming);
+    }
+
+    for (const fetchCacheStatus of this.getFetchCacheStatus()) {
+      headers.append(InternalHeaders.FetchCacheStatus, fetchCacheStatus);
     }
 
     const cacheAPIOperations = [

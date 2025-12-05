@@ -162,11 +162,15 @@ class FunctionChain {
       ]);
       const call = this.metrics.startPassthrough();
 
+      let result: Response | undefined;
+
       try {
-        return await fetch(originReq, {
+        result = await fetch(originReq, {
           redirect: "manual",
           signal,
         });
+
+        return result;
       } catch (error: any) {
         const isStreamError = error.name === "TypeError" &&
           (error.message === "Failed to fetch: request body stream errored" ||
@@ -191,7 +195,7 @@ class FunctionChain {
 
         throw canRetry ? error : new UnretriableError(error);
       } finally {
-        call.end();
+        call.end(result?.headers.get("cache-status"));
       }
     });
 

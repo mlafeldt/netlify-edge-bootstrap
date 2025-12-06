@@ -15,7 +15,9 @@ import {
 import {
   getEnvironment,
   injectEnvironmentVariablesFromHeader,
+  populateEarlyAIEnvironment,
   populateEnvironment,
+  resetInitialEnv,
   setHasPopulatedEnvironment,
 } from "./environment.ts";
 import { Netlify } from "./globals/implementation.ts";
@@ -178,6 +180,11 @@ export const handleRequest = async (
 
     injectEnvironmentVariablesFromHeader(edgeReq);
 
+    // Populate early AI environment variables before loading functions.
+    // This allows AI SDK clients to be initialized in top-level scope with
+    // AIG base URLs when AIG is enabled.
+    populateEarlyAIEnvironment(edgeReq);
+
     if (!functions) {
       functions = await getFunctions();
     }
@@ -313,5 +320,6 @@ const getInvocationErrorHeader = (error: unknown) => {
 
 export const resetModuleState = () => {
   setHasPopulatedEnvironment(false);
+  resetInitialEnv();
   functions = null;
 };

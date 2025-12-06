@@ -4,16 +4,12 @@ import { GetEnvFromEdgeFuncEnvHeader } from "./get_env_from_edge_func_env_header
 import { env } from "../runtime/env.ts";
 
 let hasPopulatedEnvironment = false;
+let hasPopulatedEarlyAIEnvironment = false;
 
 const NETLIFY_AI_GATEWAY_KEY_VAR = "NETLIFY_AI_GATEWAY_KEY";
 const NETLIFY_AI_GATEWAY_BASE_URL_VAR = "NETLIFY_AI_GATEWAY_URL";
 const NETLIFY_AI_GATEWAY_DEFAULT_PATH = "/.netlify/ai/";
 const NETLIFY_ENVIRONMENT = "NETLIFY_ENVIRONMENT";
-export const AI_PROVIDERS = [
-  { key: "OPENAI_API_KEY", url: "OPENAI_BASE_URL" },
-  { key: "ANTHROPIC_API_KEY", url: "ANTHROPIC_BASE_URL" },
-  { key: "GEMINI_API_KEY", url: "GOOGLE_GEMINI_BASE_URL" },
-];
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length !== 0;
@@ -37,7 +33,55 @@ interface AIGatewayData {
   envVars?: AIProviderEnvVar[];
 }
 
-let initialEnv: Record<string, string>;
+// Capture initial environment to detect user-set variables
+// Captured lazily on first use after module load or reset
+let initialEnv: Record<string, string> | undefined;
+
+/**
+ * Injects AI Gateway base URL at isolate startup if SDK client intitialized
+ * in top-level scope.
+ */
+const injectEarlyAIEnvironment = (
+  aiGateway: string,
+  siteURL: string | undefined,
+): void => {
+  try {
+    const rawData = atob(aiGateway);
+    const data = JSON.parse(rawData) as AIGatewayData;
+
+    const aiGatewayBaseURL = getNetlifyAIGatewayBaseURL(
+      data.url,
+      siteURL ?? "",
+    );
+
+    // Capture initial environment on first use to detect user-set variables
+    if (!initialEnv) {
+      initialEnv = Deno.env.toObject();
+    }
+
+    // Set the Netlify AI Gateway base URL (static per isolate)
+    Deno.env.set(NETLIFY_AI_GATEWAY_BASE_URL_VAR, aiGatewayBaseURL);
+
+    const providersToProcess =
+      (Array.isArray(data.envVars) && data.envVars.length > 0)
+        ? data.envVars
+        : [];
+
+    // Only set BASE_URLs (keys expire and are set per-request)
+    for (const { key, url } of providersToProcess) {
+      if (initialEnv[key] || initialEnv[url]) {
+        continue;
+      }
+
+      Deno.env.set(url, aiGatewayBaseURL);
+    }
+  } catch (error) {
+    console.error(
+      "An internal error occurred while setting up Netlify AI Gateway (early):",
+      error,
+    );
+  }
+};
 
 const injectAIEnvironment = (
   aiGateway: string,
@@ -52,6 +96,7 @@ const injectAIEnvironment = (
       siteURL ?? "",
     );
 
+    // Capture initial environment on first use to detect user-set variables
     if (!initialEnv) {
       initialEnv = env.toObject();
     }
@@ -61,7 +106,7 @@ const injectAIEnvironment = (
     const providersToProcess =
       (Array.isArray(data.envVars) && data.envVars.length > 0)
         ? data.envVars
-        : AI_PROVIDERS;
+        : [];
 
     for (const { key, url } of providersToProcess) {
       if (initialEnv[key] || initialEnv[url]) {
@@ -169,10 +214,36 @@ export const populateEnvironment = (req: EdgeRequest) => {
   hasPopulatedEnvironment = true;
 };
 
+/**
+ * Populates AI Gateway base URLs early, before Edge Functions are imported.
+ * This is called on the first request to enable top-level AI client initialization.
+ *
+ * Only sets BASE_URL environment variables, not API keys (which expire and must be
+ * refreshed per-request).
+ */
+export const populateEarlyAIEnvironment = (req: EdgeRequest) => {
+  if (hasPopulatedEarlyAIEnvironment) {
+    return;
+  }
+
+  const site = getSite(req);
+  const aiGateway = getAIGateway(req);
+
+  if (isNonEmptyString(aiGateway)) {
+    injectEarlyAIEnvironment(aiGateway, site.url);
+    hasPopulatedEarlyAIEnvironment = true;
+  }
+};
+
 export const setHasPopulatedEnvironment = (val: boolean) => {
   hasPopulatedEnvironment = val;
-  // Reset initialEnv cache when resetting environment state
+  // Reset early AI environment flag when resetting environment state
   if (!val) {
-    initialEnv = undefined as any;
+    hasPopulatedEarlyAIEnvironment = false;
   }
+};
+
+// Test helper to reset initial environment cache (called when fully resetting test environment)
+export const resetInitialEnv = () => {
+  initialEnv = undefined;
 };

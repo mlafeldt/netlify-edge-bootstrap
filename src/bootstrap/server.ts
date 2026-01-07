@@ -1,4 +1,5 @@
 import { getEnvironment } from "./environment.ts";
+import { InternalHeaders } from "./headers.ts";
 import { handleRequest } from "./handler.ts";
 import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
@@ -60,7 +61,15 @@ export const serve = (
       });
     } catch (error) {
       console.error("Error handling request:", error);
-      return new Response("Internal Server Error", { status: 500 });
+      return new Response("Internal Server Error", {
+        status: 500,
+        headers: {
+          [InternalHeaders.PlatformError]: JSON.stringify({
+            "code": "bootstrap_error",
+            "message": "An unexpected error occurred",
+          }),
+        },
+      });
     }
   });
 

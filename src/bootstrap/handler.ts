@@ -32,6 +32,7 @@ import {
   patchFetchToForceHTTP11,
   patchFetchToHaveItsOwnConnectionPoolPerIsolate,
 } from "./util/fetch.ts";
+import { requestStore } from "./util/execution_context.ts";
 
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
@@ -63,7 +64,38 @@ globalThis.addEventListener("unhandledrejection", (event) => {
 
 let functions: Functions | null = null;
 
-export const handleRequest = async (
+export const handleRequest = (
+  req: Request,
+  getFunctions: () => Promise<Functions>,
+  {
+    fetchRewrites,
+    rawLogger = console.log,
+    requestTimeout = 0,
+  }: HandleRequestOptions = {},
+): Promise<Response> => {
+  const id = req.headers.get(InternalHeaders.RequestID);
+  const logToken = req.headers.get(InternalHeaders.LogToken);
+  const spanID = req.headers.get(InternalHeaders.NFTraceSpanID);
+
+  // Set up request-level context for the entire request handling lifecycle.
+  // This provides basic metadata (requestID, spanID, logToken) for logs emitted
+  // outside function execution.
+  return requestStore.run(
+    {
+      requestID: id ?? "",
+      spanID: spanID ?? "",
+      logToken: logToken ?? "",
+    },
+    () =>
+      handleRequestInContext(req, getFunctions, {
+        fetchRewrites,
+        rawLogger,
+        requestTimeout,
+      }),
+  );
+};
+
+const handleRequestInContext = async (
   req: Request,
   getFunctions: () => Promise<Functions>,
   {

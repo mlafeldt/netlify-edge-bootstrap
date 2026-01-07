@@ -20,6 +20,7 @@ export enum InternalHeaders {
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
   UncaughtError = "x-nf-uncaught-error",
+  PlatformError = "x-nf-edge-function-platform-error",
   FeatureFlags = "x-nf-feature-flags",
   EdgeFunctionBypass = "x-nf-edge-function-bypass",
   DebugLogging = "x-nf-debug-logging",

@@ -1,7 +1,11 @@
 import { format } from "node:util";
 import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 import { getEnvironment } from "../environment.ts";
-import { type LogLevel, type NetlifyMetadata } from "./instrumented_log.ts";
+import {
+  type LogLevel,
+  type LogType,
+  type NetlifyMetadata,
+} from "./instrumented_log.ts";
 
 const bind = Function.bind.call.bind(Function.bind) as <
   F extends (this: any, ...args: any[]) => any,
@@ -46,14 +50,31 @@ const formatArguments = (
   return format(message, ...optionalParams);
 };
 
+/**
+ * Detects if the log data is a system log by checking for the __nfmessage
+ * marker that is added by instrumentedLog when serializing StructuredLogger.
+ */
+function detectSystemLog(data: string): LogType | undefined {
+  try {
+    const parsed = JSON.parse(data);
+    if (parsed && typeof parsed === "object" && "__nfmessage" in parsed) {
+      return "systemJSON";
+    }
+  } catch {
+    // Not JSON, not a system log
+  }
+  return undefined;
+}
+
 function generateOutput(data: string, logLevel: LogLevel): Uint8Array {
-  const preamble = generatePreamble();
+  const type = detectSystemLog(data);
+  const preamble = generatePreamble(type);
   return encode(
     stringify({ msg: preamble + " " + data, level: logLevel }) + "\n",
   );
 }
 
-function generatePreamble() {
+function generatePreamble(type?: LogType) {
   const executionContext = getExecutionContextAndLogFailure(
     "logger",
   );
@@ -67,6 +88,10 @@ function generatePreamble() {
       spanID: executionContext?.spanID,
       logToken: executionContext?.logToken,
     };
+
+    if (type) {
+      metadata.type = type;
+    }
 
     // If we have an associated function chain, add the request URL to the
     // metadata object.

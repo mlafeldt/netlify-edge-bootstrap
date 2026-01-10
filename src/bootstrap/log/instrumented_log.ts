@@ -5,7 +5,7 @@ import { InternalHeaders } from "../headers.ts";
 import { getExecutionContextAndLogFailure } from "../util/execution_context.ts";
 import { NimbleConsole } from "./console.ts";
 
-type LogType = "systemJSON";
+export type LogType = "systemJSON";
 export type LogLevel = "debug" | "info" | "warn" | "error";
 
 export interface InstrumentedLogMetadata {

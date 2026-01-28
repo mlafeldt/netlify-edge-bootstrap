@@ -26,6 +26,7 @@ import {
   getIP,
   getLogger,
   getLogToken,
+  getRegion,
   getRequestID,
   getSite,
   getSpanID,
@@ -71,7 +72,7 @@ interface RunFunctionOptions {
   previousRewrites?: Set<string>;
 }
 
-const DENO_REGION = env.get("DENO_REGION") ?? "";
+let denoRegion = "";
 const DENO_RUNNER_IP = env.get("DENO_RUNNER_IP") ?? "";
 
 class FunctionChain {
@@ -117,6 +118,7 @@ class FunctionChain {
     this.request = request;
     this.router = router;
     this.timeoutSignal = timeoutSignal ?? parentChain?.timeoutSignal;
+    denoRegion = getRegion(this.request);
   }
 
   async fetchPassthrough(url?: URL) {
@@ -286,7 +288,7 @@ class FunctionChain {
       site: getSite(this.request),
       account: getAccount(this.request),
       server: {
-        region: DENO_REGION,
+        region: denoRegion,
       },
       url: new URL(url),
       waitUntil,

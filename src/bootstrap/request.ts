@@ -15,6 +15,7 @@ import {
 } from "./log/logger.ts";
 import { parseSiteHeader } from "./site.ts";
 import { OriginResponse } from "./response.ts";
+import { env } from "../runtime/env.ts";
 
 export const loggerSymbol = Symbol("Netlify Logger");
 export const internalsSymbol = Symbol("Netlify Internals");
@@ -211,6 +212,10 @@ export const getFeatureFlags = (request: EdgeRequest) =>
   request[internalsSymbol].featureFlags;
 
 export const getSite = (request: EdgeRequest) => request[internalsSymbol].site;
+
+export const getRegion = (request: EdgeRequest) =>
+  request.headers.get(InternalHeaders.NimbleRegion) ?? env.get("DENO_REGION") ??
+    "";
 
 interface PassthroughRequestOptions {
   req: EdgeRequest;

@@ -19,6 +19,7 @@ export enum InternalHeaders {
   PassthroughProtocol = "x-nf-passthrough-proto",
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
+  NimbleRegion = "x-nf-nimble-region",
   UncaughtError = "x-nf-uncaught-error",
   PlatformError = "x-nf-edge-function-platform-error",
   FeatureFlags = "x-nf-feature-flags",

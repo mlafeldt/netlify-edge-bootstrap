@@ -1,4 +1,10 @@
-import { getAIGateway, getLogger, getPurgeAPIToken } from "./request.ts";
+import { FeatureFlag } from "./feature_flags.ts";
+import {
+  getAIGateway,
+  getFeatureFlags,
+  getLogger,
+  getPurgeAPIToken,
+} from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
 import { GetEnvFromEdgeFuncEnvHeader } from "./get_env_from_edge_func_env_header.ts";
 import { env } from "../runtime/env.ts";
@@ -209,6 +215,11 @@ export const populateEnvironment = (req: EdgeRequest) => {
 
   if (site.url) {
     env.set("URL", site.url);
+  }
+
+  // If LogHTMLRewriter is enabled, set the env var for HTMLRewriter logging
+  if (getFeatureFlags(req)[FeatureFlag.LogHTMLRewriter]) {
+    env.set("NETLIFY_LOG_HTML_REWRITER", "true");
   }
 
   hasPopulatedEnvironment = true;

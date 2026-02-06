@@ -670,7 +670,14 @@ class FunctionChain {
         functionName: name,
         requestID: this.requestID,
         spanID: this.spanID,
+        logToken: this.logToken,
       };
+
+      const logUncaughtError = () =>
+        executionStore.run(
+          { chain: this, functionIndex },
+          () => instrumentedConsole.error(errorMetadata, error),
+        );
 
       logger.withFields({ onError: config.onError })
         .debug("Function has thrown an error");
@@ -678,14 +685,14 @@ class FunctionChain {
       // In the default failure mode, we just re-throw the error. It will be
       // handled upstream.
       if (config.onError === OnError.Fail) {
-        instrumentedConsole.error(errorMetadata, error);
+        logUncaughtError();
 
         throw error;
       }
 
       // In the "bypass" failure mode, we run the next function in the chain.
       if (config.onError === OnError.Bypass) {
-        instrumentedConsole.error(errorMetadata, error);
+        logUncaughtError();
 
         return this.runFunction({
           functionIndex: functionIndex + 1,
@@ -702,7 +709,7 @@ class FunctionChain {
         throw error;
       }
 
-      instrumentedConsole.error(errorMetadata, error);
+      logUncaughtError();
 
       // Otherwise, return a bypass response with the new URL.
       const url = new URL(config.onError, this.request.url);

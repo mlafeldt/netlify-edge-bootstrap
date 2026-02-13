@@ -43,6 +43,7 @@ export enum InternalHeaders {
   FetchCacheStatus = "x-nf-fetch-cache-status",
   InvocationMetrics = "x-nf-invocation-metrics",
   NFTraceSpanID = "x-nf-trace-span-id",
+  NetlifyDBURL = "x-nf-netlify-db-url",
   NFEdgeFuncEnv = "x-nf-edge-function-env",
   LogToken = "x-nf-edge-function-log-token",
   SkewProtectionToken = "x-nf-skew-protection-token",

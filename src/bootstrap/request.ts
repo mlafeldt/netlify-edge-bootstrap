@@ -44,6 +44,7 @@ interface EdgeRequestInternals {
   passthroughHost: string | null;
   passthroughProtocol: string | null;
   passthroughHeaders?: Headers;
+  netlifyDBURL: string | null;
   purgeAPIToken: string | null;
   requestID: string | null;
   spanID?: string | null;
@@ -77,6 +78,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     forwardedProtocol: headers.get(InternalHeaders.ForwardedProtocol),
     geo: parseGeoHeader(headers.get(InternalHeaders.Geo)),
     ip: headers.get(InternalHeaders.IP) ?? "",
+    netlifyDBURL: headers.get(InternalHeaders.NetlifyDBURL),
     passthrough: headers.get(InternalHeaders.Passthrough),
     passthroughHost: headers.get(InternalHeaders.PassthroughHost),
     passthroughProtocol: headers.get(InternalHeaders.PassthroughProtocol),
@@ -132,6 +134,7 @@ export class EdgeRequest extends Request {
       InternalHeaders.PassthroughProtocol,
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
+      InternalHeaders.NetlifyDBURL,
       InternalHeaders.SiteInfo,
       InternalHeaders.SkewProtectionToken,
     ].forEach((header) => {
@@ -184,6 +187,9 @@ export const getBypassSettings = (request: EdgeRequest) =>
 
 export const getPassthroughHeaders = (request: EdgeRequest) =>
   request[internalsSymbol].passthroughHeaders ?? new Headers();
+
+export const getNetlifyDBURL = (request: EdgeRequest) =>
+  request[internalsSymbol].netlifyDBURL;
 
 export const getPurgeAPIToken = (request: EdgeRequest) =>
   request[internalsSymbol].purgeAPIToken;

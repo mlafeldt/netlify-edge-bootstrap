@@ -3,6 +3,7 @@ import {
   getAIGateway,
   getFeatureFlags,
   getLogger,
+  getNetlifyDBURL,
   getPurgeAPIToken,
 } from "./request.ts";
 import { EdgeRequest, getSite } from "./request.ts";
@@ -188,6 +189,12 @@ const populateEphemeralEnvironment = (
   const purgeAPIToken = getPurgeAPIToken(req);
   if (purgeAPIToken) {
     env.set("NETLIFY_PURGE_API_TOKEN", purgeAPIToken);
+  }
+
+  const netlifyDBURL = getNetlifyDBURL(req);
+  if (isNonEmptyString(netlifyDBURL)) {
+    env.set("NETLIFY_DB_DRIVER", "serverless");
+    env.set("NETLIFY_DB_URL", netlifyDBURL);
   }
 };
 

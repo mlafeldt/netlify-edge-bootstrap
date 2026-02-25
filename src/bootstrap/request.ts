@@ -1,6 +1,7 @@
 import { parseAccountHeader } from "./account.ts";
 import { BlobsMetadata, parseBlobsMetadata } from "./blobs.ts";
 import { Account, Deploy, Geo, Site } from "./context.ts";
+import { parseIdentityHeader } from "./identity.ts";
 import { parseGeoHeader } from "./geo.ts";
 import {
   conditionals as conditionalHeaders,
@@ -39,6 +40,7 @@ interface EdgeRequestInternals {
   forwardedHost: string | null;
   forwardedProtocol: string | null;
   geo: Geo;
+  identity: Record<string, unknown> | null;
   ip: string;
   passthrough: string | null;
   passthroughHost: string | null;
@@ -77,6 +79,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     forwardedHost: headers.get(InternalHeaders.ForwardedHost),
     forwardedProtocol: headers.get(InternalHeaders.ForwardedProtocol),
     geo: parseGeoHeader(headers.get(InternalHeaders.Geo)),
+    identity: parseIdentityHeader(headers.get(InternalHeaders.IdentityInfo)),
     ip: headers.get(InternalHeaders.IP) ?? "",
     netlifyDBURL: headers.get(InternalHeaders.NetlifyDBURL),
     passthrough: headers.get(InternalHeaders.Passthrough),
@@ -124,6 +127,7 @@ export class EdgeRequest extends Request {
       InternalHeaders.ForwardedHost,
       InternalHeaders.ForwardedProtocol,
       InternalHeaders.Geo,
+      InternalHeaders.IdentityInfo,
       InternalHeaders.IP,
       InternalHeaders.EdgeFunctions,
       InternalHeaders.LegacyEdgeFunctions,
@@ -168,6 +172,9 @@ export const getDeploy = (request: EdgeRequest) =>
 
 export const getGeoLocation = (request: EdgeRequest) =>
   request[internalsSymbol].geo;
+
+export const getIdentity = (request: EdgeRequest) =>
+  request[internalsSymbol].identity;
 
 export const getIP = (request: EdgeRequest) => request[internalsSymbol].ip;
 

@@ -21,6 +21,7 @@ import {
   setHasPopulatedEnvironment,
 } from "./environment.ts";
 import { Netlify } from "./globals/implementation.ts";
+import { setupIdentityGlobal } from "./identity.ts";
 import { InternalHeaders, mutateHeaders, StandardHeaders } from "./headers.ts";
 import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
 import { RequestMetrics } from "./metrics.ts";
@@ -41,6 +42,7 @@ interface HandleRequestOptions {
 }
 
 globalThis.Netlify = Netlify;
+setupIdentityGlobal();
 
 // There is an issue in Deno where a cancellation of a client request leads to
 // an exception that cannot be caught. This is a problem because the isolate

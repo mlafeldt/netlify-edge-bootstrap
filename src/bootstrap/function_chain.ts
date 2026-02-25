@@ -23,6 +23,7 @@ import {
   getCacheMode,
   getDeploy,
   getGeoLocation,
+  getIdentity,
   getIP,
   getLogger,
   getLogToken,
@@ -248,6 +249,10 @@ class FunctionChain {
       // signals), as they may be used for transformation.
       requireFinalResponse: true,
     });
+  }
+
+  get identityContext() {
+    return getIdentity(this.request);
   }
 
   getContext(functionIndex: number) {

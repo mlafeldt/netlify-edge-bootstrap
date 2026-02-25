@@ -9,6 +9,7 @@ export enum InternalHeaders {
   DeployContext = "x-nf-deploy-context",
   DeployIsPublished = "x-nf-deploy-published",
   Geo = "x-nf-geo",
+  IdentityInfo = "x-nf-identity-info",
   SiteInfo = "x-nf-site-info",
   AccountInfo = "x-nf-account-info",
   ForwardedHost = "x-forwarded-host",

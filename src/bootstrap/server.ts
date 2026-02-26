@@ -73,15 +73,15 @@ export const serve = (
     }
   });
 
-  // Listen for shutdown signals to gracefully shut down the server
-  Deno.addSignalListener("SIGINT", async () => {
-    await server.shutdown();
+  // Listen for shutdown signals and exit immediately
+  Deno.addSignalListener("SIGINT", () => {
+    Deno.exit(0);
   });
 
   // SIGTERM is not supported on Windows, only add listener on other platforms
   if (Deno.build.os !== "windows") {
-    Deno.addSignalListener("SIGTERM", async () => {
-      await server.shutdown();
+    Deno.addSignalListener("SIGTERM", () => {
+      Deno.exit(0);
     });
   }
 

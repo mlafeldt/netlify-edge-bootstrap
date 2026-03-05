@@ -108,6 +108,17 @@ export const patchGlobals = () => {
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
 
+  if (typeof window === "undefined") {
+    Object.defineProperty(globalThis, "window", {
+      get() {
+        return globalThis;
+      },
+      set() {},
+      enumerable: true,
+      configurable: true,
+    });
+  }
+
   patchCaches();
 };
 

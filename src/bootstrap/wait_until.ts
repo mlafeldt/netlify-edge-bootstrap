@@ -1,8 +1,8 @@
-import { writeFile } from "node:fs/promises";
-
 import { NimbleConsole } from "./log/console.ts";
 
 const SCALE_TO_ZERO_DISABLE_PATH = "/uk/libukp/scale_to_zero_disable";
+
+const writeFile = Deno.writeFile;
 
 /**
  * - Writing '+' increments the scale-to-zero disable counter
@@ -21,16 +21,18 @@ function nimbleWaitUntil(promise: Promise<unknown>): void {
     Promise.resolve()
       .then(() => {
         // Increment the scale-to-zero disable counter
-        return writeFile(SCALE_TO_ZERO_DISABLE_PATH, "+", {
-          encoding: "ascii",
-        });
+        return writeFile(
+          SCALE_TO_ZERO_DISABLE_PATH,
+          new TextEncoder().encode("+"),
+        );
       })
       .then(() => promise)
       .finally(() => {
         // Decrement the scale-to-zero disable counter
-        return writeFile(SCALE_TO_ZERO_DISABLE_PATH, "-", {
-          encoding: "ascii",
-        });
+        return writeFile(
+          SCALE_TO_ZERO_DISABLE_PATH,
+          new TextEncoder().encode("-"),
+        );
       })
       .catch((error) => console.error(error));
   }, 0);

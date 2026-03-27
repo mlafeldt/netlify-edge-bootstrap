@@ -1,5 +1,6 @@
 import { FeatureFlag, parseFeatureFlagsHeader } from "./feature_flags.ts";
 import { FunctionChain } from "./function_chain.ts";
+import { NimbleConsole } from "./log/console.ts";
 import { Logger } from "./log/instrumented_log.ts";
 import { detachedLogger } from "./log/logger.ts";
 import {
@@ -27,7 +28,12 @@ import { parseRequestInvocationMetadata } from "./invocation_metadata.ts";
 import { RequestMetrics } from "./metrics.ts";
 import { Router } from "./router.ts";
 import type { Functions } from "./stage_2.ts";
-import { ErrorType, PassthroughError, UserError } from "./util/errors.ts";
+import {
+  ErrorType,
+  PassthroughError,
+  UnhandledRejectionError,
+  UserError,
+} from "./util/errors.ts";
 import "./globals/types.ts";
 import {
   patchFetchToForceHTTP11,
@@ -39,6 +45,7 @@ interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
   rawLogger?: Logger;
   requestTimeout?: number;
+  executionController?: AbortController;
 }
 
 globalThis.Netlify = Netlify;
@@ -62,6 +69,20 @@ globalThis.addEventListener("unhandledrejection", (event) => {
 
     return;
   }
+
+  if (globalThis.console instanceof NimbleConsole) {
+    // Default deno behavior would to write out unstructured log line, which breaks the log parsing,
+    // so instead we log the error ourselves in a structured way using NimbleConsole,
+    // prevent the default unstructured log.
+    console.error(event.reason);
+    // prevent crashing the process completely
+    event.preventDefault();
+    // fail current request if it didn't respond already
+    requestStore
+      .getStore()
+      ?.abortExecution?.(new UnhandledRejectionError(event.reason));
+    return;
+  }
 });
 
 let functions: Functions | null = null;
@@ -79,6 +100,8 @@ export const handleRequest = (
   const logToken = req.headers.get(InternalHeaders.LogToken);
   const spanID = req.headers.get(InternalHeaders.NFTraceSpanID);
 
+  const executionController = new AbortController();
+
   // Set up request-level context for the entire request handling lifecycle.
   // This provides basic metadata (requestID, spanID, logToken) for logs emitted
   // outside function execution.
@@ -87,12 +110,14 @@ export const handleRequest = (
       requestID: id ?? "",
       spanID: spanID ?? "",
       logToken: logToken ?? "",
+      abortExecution: (reason: unknown) => executionController.abort(reason),
     },
     () =>
       handleRequestInContext(req, getFunctions, {
         fetchRewrites,
         rawLogger,
         requestTimeout,
+        executionController,
       }),
   );
 };
@@ -104,6 +129,7 @@ const handleRequestInContext = async (
     fetchRewrites,
     rawLogger = console.log,
     requestTimeout = 0,
+    executionController = new AbortController(),
   }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
@@ -141,6 +167,12 @@ const handleRequestInContext = async (
   const timeoutSignal = requestTimeout
     ? AbortSignal.timeout(requestTimeout)
     : undefined;
+
+  const abortPromise = new Promise<never>((_, reject) => {
+    executionController.signal.addEventListener("abort", () => {
+      reject(executionController.signal.reason);
+    });
+  });
 
   try {
     const functionNamesHeader = req.headers.get(InternalHeaders.EdgeFunctions);
@@ -220,7 +252,7 @@ const handleRequestInContext = async (
     populateEarlyAIEnvironment(edgeReq);
 
     if (!functions) {
-      functions = await getFunctions();
+      functions = await Promise.race([getFunctions(), abortPromise]);
     }
 
     populateEnvironment(edgeReq);
@@ -238,6 +270,7 @@ const handleRequestInContext = async (
     const router = new Router(functions, metadata);
 
     const chain = new FunctionChain({
+      executionController,
       functionNames,
       initialMetrics: metrics,
       rawLogger,
@@ -260,8 +293,10 @@ const handleRequestInContext = async (
       .debug("Started processing edge function request");
 
     const startTime = performance.now();
-    const response =
-      await (timeoutSignal ? chain.runWithSignal() : chain.run());
+    const response = await Promise.race([
+      timeoutSignal ? chain.runWithSignal() : chain.run(),
+      abortPromise,
+    ]);
 
     // Propagate headers received from passthrough calls to the final response.
     getPassthroughHeaders(edgeReq).forEach((value, key) => {
@@ -340,6 +375,10 @@ const handleRequestInContext = async (
 const getInvocationErrorHeader = (error: unknown) => {
   if (error instanceof PassthroughError) {
     return "passthrough";
+  }
+
+  if (error instanceof UnhandledRejectionError) {
+    return "unhandled_rejection";
   }
 
   if (

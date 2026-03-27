@@ -15,6 +15,7 @@ export interface RequestContext {
   requestID: string;
   spanID: string;
   logToken: string;
+  abortExecution?: (reason?: unknown) => void;
 }
 
 export const requestStore = new AsyncLocalStorage<RequestContext>();

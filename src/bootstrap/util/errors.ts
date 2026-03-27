@@ -22,3 +22,13 @@ export class PassthroughError extends Error {
     });
   }
 }
+
+export class UnhandledRejectionError extends Error {
+  constructor(error: Error) {
+    const cause = error instanceof UnretriableError ? error.cause : error;
+
+    super("Unhandled promise rejection", {
+      cause,
+    });
+  }
+}

@@ -51,6 +51,8 @@ interface HandleRequestOptions {
 globalThis.Netlify = Netlify;
 setupIdentityGlobal();
 
+const isNimble = globalThis.console instanceof NimbleConsole;
+
 // There is an issue in Deno where a cancellation of a client request leads to
 // an exception that cannot be caught. This is a problem because the isolate
 // will crash and will fail to serve normal requests. This handler checks for
@@ -70,7 +72,7 @@ globalThis.addEventListener("unhandledrejection", (event) => {
     return;
   }
 
-  if (globalThis.console instanceof NimbleConsole) {
+  if (isNimble) {
     // Default deno behavior would to write out unstructured log line, which breaks the log parsing,
     // so instead we log the error ourselves in a structured way using NimbleConsole,
     // prevent the default unstructured log.
@@ -86,6 +88,7 @@ globalThis.addEventListener("unhandledrejection", (event) => {
 });
 
 let functions: Functions | null = null;
+let getFunctionsDuration: number | null = null;
 
 export const handleRequest = (
   req: Request,
@@ -251,8 +254,14 @@ const handleRequestInContext = async (
     // AIG base URLs when AIG is enabled.
     populateEarlyAIEnvironment(edgeReq);
 
+    let didLoadFunctionsForCurrentRequest = false;
     if (!functions) {
+      const getFunctionsStartTime = performance.now();
+
       functions = await Promise.race([getFunctions(), abortPromise]);
+
+      didLoadFunctionsForCurrentRequest = true;
+      getFunctionsDuration = performance.now() - getFunctionsStartTime;
     }
 
     populateEnvironment(edgeReq);
@@ -312,7 +321,20 @@ const handleRequestInContext = async (
     const endTime = performance.now();
 
     reqLogger
-      .withFields({ ef_duration: endTime - startTime })
+      .withFields({
+        ef_duration: endTime - startTime,
+        ...(isNimble
+          ? {
+            // to differentiate whether function loading happened for this request or happened before
+            // different field name is used to avoid confusion
+            [
+              didLoadFunctionsForCurrentRequest
+                ? "load_functions_duration_current"
+                : "load_functions_duration_initial"
+            ]: getFunctionsDuration,
+          }
+          : {}),
+      })
       .debug("Finished processing edge function request");
 
     return mutateHeaders(response, (headers) => {

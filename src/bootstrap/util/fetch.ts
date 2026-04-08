@@ -165,6 +165,9 @@ export const patchFetchToForceHTTP11 = (
     return rawFetch;
   }
   isHTTP11ClientPatched = true;
+  if (typeof Deno.createHttpClient !== "function") {
+    return rawFetch;
+  }
   http11Client = Deno.createHttpClient({ http1: true, http2: false });
   return (input: URL | Request | string, init?: RequestInit) => {
     return rawFetch(input, { ...init, client: http11Client });
@@ -186,6 +189,9 @@ export const patchFetchToHaveItsOwnConnectionPoolPerIsolate = (
     return rawFetch;
   }
   isClientPatched = true;
+  if (typeof Deno.createHttpClient !== "function") {
+    return rawFetch;
+  }
   client = Deno.createHttpClient({});
   return (input: URL | Request | string, init?: RequestInit) => {
     return rawFetch(input, { ...init, client });

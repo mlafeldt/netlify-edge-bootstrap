@@ -2,7 +2,10 @@ import { getNetlifyCacheStorage } from "../cache.ts";
 import { patchDenoFS } from "../deno-fs.ts";
 import { NimbleConsole } from "../log/console.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
-import { patchFetchToTrackSubrequests } from "../util/fetch.ts";
+import {
+  patchFetchToFallbackToHttp11OnUnspecificProtocolError,
+  patchFetchToTrackSubrequests,
+} from "../util/fetch.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
 import { patchFetchToForwardHeaders } from "./fetch.ts";
 
@@ -107,6 +110,12 @@ export const patchGlobals = () => {
 
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
+
+  if (globalThis.console instanceof NimbleConsole) {
+    globalThis.fetch = patchFetchToFallbackToHttp11OnUnspecificProtocolError(
+      globalThis.fetch,
+    );
+  }
 
   if (typeof window === "undefined") {
     Object.defineProperty(globalThis, "window", {

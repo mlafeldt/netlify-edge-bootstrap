@@ -5,7 +5,7 @@ import type {
   Context as FunctionContext,
   FunctionChain,
 } from "../function_chain.ts";
-import { detachedLogger } from "../log/logger.ts";
+import { detachedLogger, StructuredLogger } from "../log/logger.ts";
 import { StackTracer } from "./stack_tracer.ts";
 
 // Request-level context available for the entire request handling lifecycle.
@@ -16,7 +16,24 @@ export interface RequestContext {
   spanID: string;
   logToken: string;
   abortExecution?: (reason?: unknown) => void;
+  logger?: StructuredLogger;
 }
+
+/**
+ * Returns the most context-rich logger available. Prefers the request-scoped
+ * logger (with trace IDs, request metadata, etc.) when running inside a
+ * request, and falls back to a detached logger otherwise.
+ */
+export const getContextualLogger = () => {
+  const requestContext = requestStore.getStore();
+
+  if (requestContext?.logger) {
+    return requestContext.logger;
+  }
+
+  // In some cases (e.g. during initialization or if the store is not properly propagated) we might not have a logger available. In those cases, we return a detached logger that won't be able to correlate with any request but will at least provide logging capabilities.
+  return detachedLogger;
+};
 
 export const requestStore = new AsyncLocalStorage<RequestContext>();
 
@@ -77,7 +94,8 @@ export const getExecutionContextAndLogFailure = (type: string) => {
   const executionContext = getExecutionContext();
 
   if (
-    !executionContext && !loggedFailureTypes.has(type) &&
+    !executionContext &&
+    !loggedFailureTypes.has(type) &&
     getEnvironment() === "production"
   ) {
     const { capped, inHandler } = StackTracer.capture();
@@ -85,12 +103,12 @@ export const getExecutionContextAndLogFailure = (type: string) => {
     if (capped || inHandler) {
       loggedFailureTypes.add(type);
 
-      detachedLogger.withFields({
-        capped_stack_trace: capped,
-        type,
-      }).error(
-        "could not find execution context for request correlation",
-      );
+      detachedLogger
+        .withFields({
+          capped_stack_trace: capped,
+          type,
+        })
+        .error("could not find execution context for request correlation");
     }
   }
 

@@ -39,13 +39,14 @@ import {
   patchFetchToForceHTTP11,
   patchFetchToHaveItsOwnConnectionPoolPerIsolate,
 } from "./util/fetch.ts";
-import { requestStore } from "./util/execution_context.ts";
+import { RequestContext, requestStore } from "./util/execution_context.ts";
 
 interface HandleRequestOptions {
   fetchRewrites?: Map<string, string>;
   rawLogger?: Logger;
   requestTimeout?: number;
   executionController?: AbortController;
+  requestContext?: RequestContext;
 }
 
 globalThis.Netlify = Netlify;
@@ -108,17 +109,20 @@ export const handleRequest = (
   // Set up request-level context for the entire request handling lifecycle.
   // This provides basic metadata (requestID, spanID, logToken) for logs emitted
   // outside function execution.
+  const requestContext: RequestContext = {
+    requestID: id ?? "",
+    spanID: spanID ?? "",
+    logToken: logToken ?? "",
+    abortExecution: (reason: unknown) => executionController.abort(reason),
+  };
+
   return requestStore.run(
-    {
-      requestID: id ?? "",
-      spanID: spanID ?? "",
-      logToken: logToken ?? "",
-      abortExecution: (reason: unknown) => executionController.abort(reason),
-    },
+    requestContext,
     () =>
       handleRequestInContext(req, getFunctions, {
         fetchRewrites,
         rawLogger,
+        requestContext,
         requestTimeout,
         executionController,
       }),
@@ -133,12 +137,16 @@ const handleRequestInContext = async (
     rawLogger = console.log,
     requestTimeout = 0,
     executionController = new AbortController(),
+    requestContext,
   }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
   const logToken = req.headers.get(InternalHeaders.LogToken);
   const environment = getEnvironment();
   const logger = detachedLogger.withRequestID(id).withLogToken(logToken);
+  if (requestContext) {
+    requestContext.logger = logger;
+  }
   const featureFlags = parseFeatureFlagsHeader(
     req.headers.get(InternalHeaders.FeatureFlags),
   );
@@ -247,6 +255,21 @@ const handleRequestInContext = async (
 
     setFeatureFlags(edgeReq, featureFlags);
 
+    // We don't want to run the same function multiple times in the same chain,
+    // so we deduplicate the function names while preserving their order.
+    const functionNames = [...new Set(functionNamesHeader.split(","))];
+
+    const reqLogger = getLogger(edgeReq).withFields({
+      cache_mode: getCacheMode(edgeReq),
+      feature_flags: Object.keys(getFeatureFlags(edgeReq)),
+      function_names: functionNames,
+      url: req.url,
+    });
+    if (requestContext) {
+      // upgrade logger with additional fields
+      requestContext.logger = reqLogger;
+    }
+
     injectEnvironmentVariablesFromHeader(edgeReq);
 
     // Populate early AI environment variables before loading functions.
@@ -269,10 +292,6 @@ const handleRequestInContext = async (
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
 
-    // We don't want to run the same function multiple times in the same chain,
-    // so we deduplicate the function names while preserving their order.
-    const functionNames = [...new Set(functionNamesHeader.split(","))];
-
     const metadata = parseRequestInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
@@ -286,12 +305,6 @@ const handleRequestInContext = async (
       request: edgeReq,
       router,
       timeoutSignal,
-    });
-    const reqLogger = getLogger(edgeReq).withFields({
-      cache_mode: getCacheMode(edgeReq),
-      feature_flags: Object.keys(getFeatureFlags(edgeReq)),
-      function_names: functionNames,
-      url: req.url,
     });
 
     reqLogger

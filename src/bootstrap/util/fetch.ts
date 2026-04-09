@@ -1,8 +1,10 @@
 import { FeatureFlag, hasFlag } from "../feature_flags.ts";
 import { InternalHeaders, StandardHeaders } from "../headers.ts";
-import { detachedLogger } from "../log/logger.ts";
 import { internalsSymbol, PassthroughRequest } from "../request.ts";
-import { getExecutionContextAndLogFailure } from "./execution_context.ts";
+import {
+  getContextualLogger,
+  getExecutionContextAndLogFailure,
+} from "./execution_context.ts";
 
 /**
  * Takes the first argument of a `fetch()` call and returns a URL object that
@@ -37,9 +39,9 @@ export const patchFetchToTrackSubrequests = (
     const url = safelyGetFetchURL(args[0]);
 
     if (url === undefined) {
-      detachedLogger.withFields({ args }).error(
-        "Could not get URL from arguments in fetch call",
-      );
+      getContextualLogger()
+        .withFields({ args })
+        .error("Could not get URL from arguments in fetch call");
 
       return rawFetch(...args);
     }
@@ -151,16 +153,24 @@ export const patchFetchToForwardHeaders = (
   };
 };
 
+let http11Client: Deno.HttpClient;
+function getHttp11Client() {
+  if (!http11Client) {
+    if (typeof Deno.createHttpClient !== "function") {
+      throw new Error("Deno.createHttpClient is not available");
+    }
+    http11Client = Deno.createHttpClient({ http1: true, http2: false });
+  }
+  return http11Client;
+}
+
 // We currently see issues with some requests on Deno and the current thinking is
 // something in the H2 client is broken and the client is entering a weird state
 // and either cannot get or lose a connection from the pool. This means that sometimes
 // a fetch doesn't reach us at all, it can't establish connection.
 // Our working theory is to temporarily switch to HTTP/1 for passthrough requests.
-let http11Client: Deno.HttpClient;
 export let isHTTP11ClientPatched = false;
-export const patchFetchToForceHTTP11 = (
-  rawFetch: typeof globalThis.fetch,
-) => {
+export const patchFetchToForceHTTP11 = (rawFetch: typeof globalThis.fetch) => {
   if (isHTTP11ClientPatched) {
     return rawFetch;
   }
@@ -168,7 +178,7 @@ export const patchFetchToForceHTTP11 = (
   if (typeof Deno.createHttpClient !== "function") {
     return rawFetch;
   }
-  http11Client = Deno.createHttpClient({ http1: true, http2: false });
+  http11Client = getHttp11Client();
   return (input: URL | Request | string, init?: RequestInit) => {
     return rawFetch(input, { ...init, client: http11Client });
   };
@@ -195,5 +205,38 @@ export const patchFetchToHaveItsOwnConnectionPoolPerIsolate = (
   client = Deno.createHttpClient({});
   return (input: URL | Request | string, init?: RequestInit) => {
     return rawFetch(input, { ...init, client });
+  };
+};
+
+export const patchFetchToFallbackToHttp11OnUnspecificProtocolError = (
+  rawFetch: typeof globalThis.fetch,
+) => {
+  return (input: URL | Request | string, init?: RequestInit) => {
+    return rawFetch(input, init).catch((error) => {
+      // Rethrow an error if it's not the specific "http2 error: stream error detected: unspecific protocol error detected" error
+      if (
+        !(error instanceof Error) ||
+        typeof error.message !== "string" ||
+        !error.message.includes(
+          "http2 error: stream error detected: unspecific protocol error detected",
+        )
+      ) {
+        throw error;
+      }
+
+      // Attempt to fallback to HTTP/1. The "http2 error: stream error detected: unspecific protocol error detected"
+      // error can happen if response headers exceed the maximum size allowed by the HTTP/2 implementation, which currently
+      // is not configurable in Deno (16kb). Falling back to HTTP/1 allows the request to succeed in those cases.
+      return rawFetch(input, { ...init, client: getHttp11Client() }).then(
+        (response) => {
+          // If the http1 fallback did not reject, log a warning that we had to fallback to HTTP/1 for this request
+          getContextualLogger().log(
+            "fetch retry with HTTP/1 succeeded after HTTP/2 error: unspecific protocol error detected",
+          );
+
+          return response;
+        },
+      );
+    });
   };
 };

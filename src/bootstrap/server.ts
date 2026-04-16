@@ -5,6 +5,7 @@ import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
 import { parse } from "../vendor/deno.land/std@0.170.0/flags/mod.ts";
 import { Functions } from "./stage_2.ts";
+import { BundleManifest } from "./bundle_manifest.ts";
 
 // The timeout imposed by the edge nodes. It's important to keep this in place
 // as a fallback in case we're unable to patch `fetch` to add our own here.
@@ -27,10 +28,22 @@ if (getEnvironment() === "local") {
 
 patchGlobals();
 
+type OnListenCallback = () => void;
+export type ServeOptions = {
+  onListen?: OnListenCallback;
+  bundleManifest: BundleManifest;
+};
+
 export const serve = (
   functions: () => Promise<Functions>,
-  onListen?: () => void,
+  optionsOrListenCallback?: OnListenCallback | ServeOptions,
 ) => {
+  const { onListen, bundleManifest } = !optionsOrListenCallback
+    ? {}
+    : typeof optionsOrListenCallback === "function"
+    ? { onListen: optionsOrListenCallback }
+    : optionsOrListenCallback;
+
   const serveOptions: Deno.ServeTcpOptions = {
     onListen() {
       if (typeof onListen === "function") {
@@ -42,9 +55,7 @@ export const serve = (
   const portRaw = parse(Deno.args).port || 8000;
   const port = parseInt(portRaw, 10);
   if (isNaN(port)) {
-    throw new Error(
-      `Invalid port supplied: ${portRaw}`,
-    );
+    throw new Error(`Invalid port supplied: ${portRaw}`);
   }
   if (port < 0 || port > 65535) {
     throw new Error(`port must be between 0 and 65535, got ${port}`);
@@ -55,6 +66,7 @@ export const serve = (
   const server = Deno.serve(serveOptions, async (req: Request) => {
     try {
       return await handleRequest(req, functions, {
+        bundleManifest,
         fetchRewrites,
         rawLogger: consoleLog,
         requestTimeout: REQUEST_TIMEOUT,
@@ -65,8 +77,8 @@ export const serve = (
         status: 500,
         headers: {
           [InternalHeaders.PlatformError]: JSON.stringify({
-            "code": "bootstrap_error",
-            "message": "An unexpected error occurred",
+            code: "bootstrap_error",
+            message: "An unexpected error occurred",
           }),
         },
       });

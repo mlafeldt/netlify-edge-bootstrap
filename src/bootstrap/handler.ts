@@ -40,8 +40,10 @@ import {
   patchFetchToHaveItsOwnConnectionPoolPerIsolate,
 } from "./util/fetch.ts";
 import { RequestContext, requestStore } from "./util/execution_context.ts";
+import type { BundleManifest } from "./bundle_manifest.ts";
 
 interface HandleRequestOptions {
+  bundleManifest?: BundleManifest;
   fetchRewrites?: Map<string, string>;
   rawLogger?: Logger;
   requestTimeout?: number;
@@ -95,6 +97,7 @@ export const handleRequest = (
   req: Request,
   getFunctions: () => Promise<Functions>,
   {
+    bundleManifest,
     fetchRewrites,
     rawLogger = console.log,
     requestTimeout = 0,
@@ -120,6 +123,7 @@ export const handleRequest = (
     requestContext,
     () =>
       handleRequestInContext(req, getFunctions, {
+        bundleManifest,
         fetchRewrites,
         rawLogger,
         requestContext,
@@ -133,6 +137,7 @@ const handleRequestInContext = async (
   req: Request,
   getFunctions: () => Promise<Functions>,
   {
+    bundleManifest,
     fetchRewrites,
     rawLogger = console.log,
     requestTimeout = 0,
@@ -292,10 +297,14 @@ const handleRequestInContext = async (
     const cacheAPIToken = getCacheAPIToken(edgeReq);
     const cacheAPIURL = getCacheAPIURL(edgeReq);
 
-    const metadata = parseRequestInvocationMetadata(
+    const requestInvocationMetadata = parseRequestInvocationMetadata(
       req.headers.get(InternalHeaders.InvocationMetadata),
     );
-    const router = new Router(functions, metadata);
+    const router = new Router(
+      functions,
+      requestInvocationMetadata,
+      bundleManifest,
+    );
 
     const chain = new FunctionChain({
       executionController,

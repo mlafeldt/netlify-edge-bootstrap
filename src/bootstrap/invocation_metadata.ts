@@ -1,25 +1,15 @@
-export interface FunctionConfig {
-  excluded_patterns?: string[] | null;
-  generator?: string;
-  on_error?: string;
-}
+import type { FunctionConfig, Route } from "./bundle_manifest.ts";
+
 export interface RequestInvocationMetadata {
   function_config?: Record<string, FunctionConfig>;
   req_routes?: number[];
-  routes?: {
-    function: string;
-    path?: string;
-    pattern: string;
-    methods?: string[];
-    header?: Record<string, boolean | string>;
-  }[] | null;
+  routes?: Route[] | null;
+  is_post_cache?: boolean;
 }
 
 // Parses the header with invocation metadata sent by our edge nodes. It holds
 // a Base64-encoded JSON string with the list of all routes and configuration.
-export function parseRequestInvocationMetadata(
-  routingHeader: string | null,
-) {
+export function parseRequestInvocationMetadata(routingHeader: string | null) {
   if (!routingHeader) {
     return {};
   }

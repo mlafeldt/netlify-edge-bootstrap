@@ -1,7 +1,9 @@
+import { BundleManifest } from "./bundle_manifest.ts";
 import { EdgeFunction } from "./edge_function.ts";
 import { isInternalHeader } from "./headers.ts";
 import { RequestInvocationMetadata } from "./invocation_metadata.ts";
 import type { Functions } from "./stage_2.ts";
+import { getContextualLogger } from "./util/execution_context.ts";
 
 interface FunctionConfig {
   excludedPatterns: RegExp[];
@@ -51,6 +53,61 @@ function getOrCompileRegex(pattern: string): RegExp | null {
   return regex;
 }
 
+export function getRawFunctionConfig(
+  requestInvocationMetadata: RequestInvocationMetadata,
+  bundleManifest?: BundleManifest,
+) {
+  if (
+    "function_config" in requestInvocationMetadata &&
+    requestInvocationMetadata.function_config
+  ) {
+    return {
+      rawConfig: requestInvocationMetadata.function_config,
+      rawConfigSource: "invocation-metadata",
+    };
+  }
+
+  if (bundleManifest && "function_config" in bundleManifest) {
+    return {
+      rawConfig: bundleManifest.function_config,
+      rawConfigSource: "bundle-manifest",
+    };
+  }
+
+  return { rawConfig: {}, rawConfigSource: "none" };
+}
+
+export function getRawRoutes(
+  requestInvocationMetadata: RequestInvocationMetadata,
+  bundleManifest?: BundleManifest,
+) {
+  if (
+    "routes" in requestInvocationMetadata &&
+    requestInvocationMetadata.routes
+  ) {
+    return {
+      rawRoutes: requestInvocationMetadata.routes,
+      rawRoutesSource: "invocation-metadata",
+    };
+  }
+
+  if (requestInvocationMetadata.is_post_cache) {
+    if (bundleManifest && "post_cache_routes" in bundleManifest) {
+      return {
+        rawRoutes: bundleManifest.post_cache_routes,
+        rawRoutesSource: "bundle-manifest-post-cache",
+      };
+    }
+  } else if (bundleManifest && "routes" in bundleManifest) {
+    return {
+      rawRoutes: bundleManifest.routes,
+      rawRoutesSource: "bundle-manifest",
+    };
+  }
+
+  return { rawRoutes: [], rawRoutesSource: "none" };
+}
+
 export class Router {
   // The functions that should run for the request.
   private functions: Map<string, FunctionWithConfig>;
@@ -65,13 +122,18 @@ export class Router {
 
   constructor(
     functions: Functions,
-    metadata: RequestInvocationMetadata,
+    requestInvocationMetadata: RequestInvocationMetadata,
+    bundleManifest?: BundleManifest,
   ) {
-    const rawConfig = metadata.function_config ?? {};
+    const { rawConfig, rawConfigSource } = getRawFunctionConfig(
+      requestInvocationMetadata,
+      bundleManifest,
+    );
+
     const functionsWithConfig = new Map<string, FunctionWithConfig>();
 
-    if (Array.isArray(metadata.req_routes)) {
-      this.requestRoutes = metadata.req_routes;
+    if (Array.isArray(requestInvocationMetadata.req_routes)) {
+      this.requestRoutes = requestInvocationMetadata.req_routes;
     }
 
     // `rawConfig` is an unsanitized/type-unsafe payload that we receive in the
@@ -93,8 +155,8 @@ export class Router {
       } = rawConfig[name] ?? {};
 
       if (excludedPatterns) {
-        const expressions = excludedPatterns.map((pattern) =>
-          new RegExp(pattern)
+        const expressions = excludedPatterns.map(
+          (pattern) => new RegExp(pattern),
         );
 
         config.excludedPatterns.push(...expressions);
@@ -118,7 +180,24 @@ export class Router {
     });
 
     this.functions = functionsWithConfig;
-    this.routes = (metadata.routes ?? []).map((route) => {
+
+    const { rawRoutes, rawRoutesSource } = getRawRoutes(
+      requestInvocationMetadata,
+      bundleManifest,
+    );
+
+    getContextualLogger()
+      .withFields({
+        function_config: JSON.stringify(rawConfig),
+        function_config_source: rawConfigSource,
+        routes: JSON.stringify(rawRoutes),
+        routes_source: rawRoutesSource,
+        requestInvocationMetadata: JSON.stringify(requestInvocationMetadata),
+        bundleManifest: JSON.stringify(bundleManifest),
+      })
+      .debug("Resolved function config");
+
+    this.routes = rawRoutes.map((route) => {
       const func = functionsWithConfig.get(route.function);
 
       if (func === undefined) {

@@ -394,6 +394,12 @@ const handleRequestInContext = async (
         fields.error_stack = error.stack;
         fields.error_cause = String(error.cause);
         fields.error_type = errorType;
+      } else if (error !== null && typeof error === "object") {
+        try {
+          fields.error_message = JSON.stringify(error) ?? String(error);
+        } catch {
+          fields.error_message = String(error);
+        }
       } else {
         fields.error_message = String(error);
       }

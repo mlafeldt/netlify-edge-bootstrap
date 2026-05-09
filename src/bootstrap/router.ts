@@ -186,17 +186,6 @@ export class Router {
       bundleManifest,
     );
 
-    getContextualLogger()
-      .withFields({
-        function_config: JSON.stringify(rawConfig),
-        function_config_source: rawConfigSource,
-        routes: JSON.stringify(rawRoutes),
-        routes_source: rawRoutesSource,
-        requestInvocationMetadata: JSON.stringify(requestInvocationMetadata),
-        bundleManifest: JSON.stringify(bundleManifest),
-      })
-      .debug("Resolved function config");
-
     this.routes = rawRoutes.map((route) => {
       const func = functionsWithConfig.get(route.function);
 

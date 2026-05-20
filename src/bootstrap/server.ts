@@ -1,6 +1,6 @@
 import { getEnvironment } from "./environment.ts";
 import { InternalHeaders } from "./headers.ts";
-import { handleRequest } from "./handler.ts";
+import { type Annotations, handleRequest } from "./handler.ts";
 import { patchFetchWithRewrites } from "./util/fetch.ts";
 import { patchGlobals } from "./util/patch_globals.ts";
 import { parse } from "../vendor/deno.land/std@0.170.0/flags/mod.ts";
@@ -32,13 +32,14 @@ type OnListenCallback = () => void;
 export type ServeOptions = {
   onListen?: OnListenCallback;
   bundleManifest: BundleManifest;
+  annotations?: Annotations;
 };
 
 export const serve = (
   functions: () => Promise<Functions>,
   optionsOrListenCallback?: OnListenCallback | ServeOptions,
 ) => {
-  const { onListen, bundleManifest } = !optionsOrListenCallback
+  const { onListen, bundleManifest, annotations } = !optionsOrListenCallback
     ? {}
     : typeof optionsOrListenCallback === "function"
     ? { onListen: optionsOrListenCallback }
@@ -67,6 +68,7 @@ export const serve = (
     try {
       return await handleRequest(req, functions, {
         bundleManifest,
+        annotations,
         fetchRewrites,
         rawLogger: consoleLog,
         requestTimeout: REQUEST_TIMEOUT,

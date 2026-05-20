@@ -9,6 +9,8 @@ export enum FeatureFlag {
   LogHTMLRewriter = "edge_functions_bootstrap_log_html_rewriter",
   UseOneClientPoolPerIsolate =
     "edge_functions_bootstrap_use_one_client_pool_per_isolate",
+  ErrorOnSiteOrAccountMismatch =
+    "edge_functions_bootstrap_error_on_site_or_account_mismatch",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {
@@ -17,9 +19,7 @@ export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {
   return Boolean(featureFlags[flag]);
 };
 
-export function parseFeatureFlagsHeader(
-  header: string | null,
-): FeatureFlags {
+export function parseFeatureFlagsHeader(header: string | null): FeatureFlags {
   if (!header) {
     return {};
   }

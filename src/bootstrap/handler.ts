@@ -5,12 +5,14 @@ import { Logger } from "./log/instrumented_log.ts";
 import { detachedLogger } from "./log/logger.ts";
 import {
   EdgeRequest,
+  getAccount,
   getCacheAPIToken,
   getCacheAPIURL,
   getCacheMode,
   getFeatureFlags,
   getLogger,
   getPassthroughHeaders,
+  getSite,
   setFeatureFlags,
 } from "./request.ts";
 import {
@@ -42,6 +44,14 @@ import {
 import { RequestContext, requestStore } from "./util/execution_context.ts";
 import type { BundleManifest } from "./bundle_manifest.ts";
 
+export type Annotations = {
+  site_id?: string;
+  deploy_id?: string;
+  account_id?: string;
+  account_tier?: string;
+  branch?: string;
+};
+
 interface HandleRequestOptions {
   bundleManifest?: BundleManifest;
   fetchRewrites?: Map<string, string>;
@@ -49,6 +59,7 @@ interface HandleRequestOptions {
   requestTimeout?: number;
   executionController?: AbortController;
   requestContext?: RequestContext;
+  annotations?: Annotations;
 }
 
 globalThis.Netlify = Netlify;
@@ -101,6 +112,7 @@ export const handleRequest = (
     fetchRewrites,
     rawLogger = console.log,
     requestTimeout = 0,
+    annotations,
   }: HandleRequestOptions = {},
 ): Promise<Response> => {
   const id = req.headers.get(InternalHeaders.RequestID);
@@ -129,6 +141,7 @@ export const handleRequest = (
         requestContext,
         requestTimeout,
         executionController,
+        annotations,
       }),
   );
 };
@@ -143,6 +156,7 @@ const handleRequestInContext = async (
     requestTimeout = 0,
     executionController = new AbortController(),
     requestContext,
+    annotations,
   }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
@@ -273,6 +287,45 @@ const handleRequestInContext = async (
     if (requestContext) {
       // upgrade logger with additional fields
       requestContext.logger = reqLogger;
+    }
+
+    if (annotations) {
+      const annotationSiteId = annotations.site_id;
+      const siteIdFromHeader = getSite(edgeReq).id;
+      const isSiteIdMismatched = annotationSiteId &&
+        siteIdFromHeader &&
+        annotationSiteId !== siteIdFromHeader;
+
+      const annotationAccountId = annotations.account_id;
+      const accountIdFromHeader = getAccount(edgeReq).id;
+      const isAccountIdMismatched = annotationAccountId &&
+        accountIdFromHeader &&
+        annotationAccountId !== accountIdFromHeader;
+
+      if (isSiteIdMismatched || isAccountIdMismatched) {
+        reqLogger
+          .withFields({
+            annotation_account_id: annotationAccountId,
+            mismatched_account_id: isAccountIdMismatched,
+            annotation_site_id: annotationSiteId,
+            mismatched_site_id: isSiteIdMismatched,
+          })
+          .error(
+            "site_id or account_id mismatch between annotations and request headers",
+          );
+
+        if (featureFlags[FeatureFlag.ErrorOnSiteOrAccountMismatch]) {
+          return new Response("Internal Server Error", {
+            status: 500,
+            headers: {
+              [InternalHeaders.PlatformError]: JSON.stringify({
+                code: "site_or_account_id_mismatch",
+                message: "An unexpected error occurred",
+              }),
+            },
+          });
+        }
+      }
     }
 
     injectEnvironmentVariablesFromHeader(edgeReq);

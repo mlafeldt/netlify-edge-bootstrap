@@ -20,15 +20,14 @@ export const patchTimeLogging = (
   // we prefix it with the Netlify metadata, so that the labels are scoped to the request & function.
   // this only works if metadata is stable between two calls to `console.time`.
   // we can't fully guarantee this, but it's the best solution we have for now.
-  const consoleTime = patchLogger(
-    (...args) => time(args.join(LABEL_SEPARATOR)),
+  const consoleTime = patchLogger((...args) =>
+    time(args.join(LABEL_SEPARATOR))
   );
-  const consoleTimeLog = patchLogger(
-    (nfMeta, label, ...args) =>
-      timeLog([nfMeta, label].join(LABEL_SEPARATOR), ...args),
+  const consoleTimeLog = patchLogger((nfMeta, label, ...args) =>
+    timeLog([nfMeta, label].join(LABEL_SEPARATOR), ...args)
   );
-  const consoleTimeEnd = patchLogger(
-    (...args) => timeEnd(args.join(LABEL_SEPARATOR)),
+  const consoleTimeEnd = patchLogger((...args) =>
+    timeEnd(args.join(LABEL_SEPARATOR))
   );
 
   return {
@@ -125,6 +124,14 @@ export const patchGlobals = () => {
       set() {},
       enumerable: true,
       configurable: true,
+    });
+  }
+
+  if (globalThis.console instanceof NimbleConsole) {
+    Deno.version = Object.freeze({
+      deno: "",
+      v8: "",
+      typescript: "",
     });
   }
 

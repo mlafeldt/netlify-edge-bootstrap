@@ -11,6 +11,7 @@ export enum FeatureFlag {
     "edge_functions_bootstrap_use_one_client_pool_per_isolate",
   ErrorOnSiteOrAccountMismatch =
     "edge_functions_bootstrap_error_on_site_or_account_mismatch",
+  NimbleLogVMStats = "edge_functions_bootstrap_nimble_log_vm_stats",
 }
 
 export const hasFlag = (req: EdgeRequest, flag: FeatureFlag) => {

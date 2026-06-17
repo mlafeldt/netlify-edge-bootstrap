@@ -66,6 +66,7 @@ globalThis.Netlify = Netlify;
 setupIdentityGlobal();
 
 const isNimble = globalThis.console instanceof NimbleConsole;
+const MB = 1024 * 1024;
 
 // There is an issue in Deno where a cancellation of a client request leads to
 // an exception that cannot be caught. This is a problem because the isolate
@@ -411,6 +412,18 @@ const handleRequestInContext = async (
           : {}),
       })
       .debug("Finished processing edge function request");
+
+    if (isNimble && featureFlags[FeatureFlag.NimbleLogVMStats]) {
+      const memoryUsage = Deno.memoryUsage();
+      reqLogger
+        .withFields({
+          rss: (memoryUsage.rss / MB).toFixed(0),
+          heap_total: (memoryUsage.heapTotal / MB).toFixed(0),
+          heap_used: (memoryUsage.heapUsed / MB).toFixed(0),
+          external: (memoryUsage.external / MB).toFixed(0),
+        })
+        .log("Nimble deno VM memory usage");
+    }
 
     return mutateHeaders(response, (headers) => {
       metrics.writeHeaders(headers);

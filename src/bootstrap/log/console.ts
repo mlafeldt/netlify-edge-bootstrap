@@ -66,12 +66,61 @@ function detectSystemLog(data: string): LogType | undefined {
   return undefined;
 }
 
+// The Nimble VMM (ukpd) reads each guest console line through a `socket/json`
+// reader (see nimble-infra-ci `--vmm-console-ports`) that buffers at 16KB per
+// line and truncates the rest. If our JSON envelope is cut mid-string the line
+// becomes unparseable and Ingesteer drops it ("invalid nimble log body"). We
+// keep every emitted line under that cap so it always stays valid JSON,
+// truncating the user-supplied message when necessary.
+const MAX_LOG_LINE_BYTES = 16 * 1024;
+// Headroom below the hard cap for the trailing newline delimiter and the few
+// bytes of boundary fuzz observed in ukpd's truncation.
+const LOG_LINE_BYTE_BUDGET = MAX_LOG_LINE_BYTES - 256;
+const TRUNCATION_MARKER = "...[truncated]";
+
+const renderLine = (
+  preamble: string | undefined,
+  data: string,
+  logLevel: LogLevel,
+) => stringify({ msg: preamble + " " + data, level: logLevel });
+
+// Binary-search the largest prefix of `data` whose rendered line (with a
+// truncation marker appended) still fits within the byte budget. The preamble
+// and metadata are always preserved. JSON.stringify escapes lone surrogates, so
+// slicing mid-code-point still yields valid JSON.
+function truncateData(
+  preamble: string | undefined,
+  data: string,
+  logLevel: LogLevel,
+): string {
+  let lo = 0;
+  let hi = data.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = data.slice(0, mid) + TRUNCATION_MARKER;
+    if (
+      encode(renderLine(preamble, candidate, logLevel)).length <=
+        LOG_LINE_BYTE_BUDGET
+    ) {
+      lo = mid;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return data.slice(0, lo) + TRUNCATION_MARKER;
+}
+
 function generateOutput(data: string, logLevel: LogLevel): Uint8Array {
   const type = detectSystemLog(data);
   const preamble = generatePreamble(type);
-  return encode(
-    stringify({ msg: preamble + " " + data, level: logLevel }) + "\n",
-  );
+  const output = encode(renderLine(preamble, data, logLevel) + "\n");
+  // The trailing newline is the console-line delimiter and isn't counted
+  // toward ukpd's cap, so compare the line length without it.
+  if (output.length - 1 <= LOG_LINE_BYTE_BUDGET) {
+    return output;
+  }
+  const fitted = truncateData(preamble, data, logLevel);
+  return encode(renderLine(preamble, fitted, logLevel) + "\n");
 }
 
 function generatePreamble(type?: LogType) {
@@ -99,9 +148,9 @@ function generatePreamble(type?: LogType) {
     if (chain) {
       const url = new URL(chain.request.url);
 
-      // Deno log lines are cut off after 2048 characters. We don't want the
-      // metadata to take up too much of that, so we truncate query parameters
-      // if they're taking up too much space. They're ignored in Ingesteer.
+      // The console line has a fixed byte cap (see MAX_LOG_LINE_BYTES). We don't
+      // want the metadata to eat into that, so we truncate query parameters if
+      // they're taking up too much space. They're ignored in Ingesteer.
       if (url.search.length > 256) {
         url.search = "?query-params-truncated";
       }

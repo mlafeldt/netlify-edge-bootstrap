@@ -224,6 +224,18 @@ export const patchFetchToFallbackToHttp11OnUnspecificProtocolError = (
         throw error;
       }
 
+      const url = safelyGetFetchURL(input)?.toString();
+
+      const method = init?.method ??
+        (input instanceof Request ? input.method : "GET");
+
+      getContextualLogger().withFields({
+        method: method,
+        url: url,
+      }).log(
+        "fetch failed with HTTP/2 error: unspecific protocol error detected, retrying with HTTP/1",
+      );
+
       // Attempt to fallback to HTTP/1. The "http2 error: stream error detected: unspecific protocol error detected"
       // error can happen if response headers exceed the maximum size allowed by the HTTP/2 implementation, which currently
       // is not configurable in Deno (16kb). Falling back to HTTP/1 allows the request to succeed in those cases.

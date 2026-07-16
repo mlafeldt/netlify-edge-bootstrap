@@ -17,6 +17,8 @@ const NETLIFY_AI_GATEWAY_KEY_VAR = "NETLIFY_AI_GATEWAY_KEY";
 const NETLIFY_AI_GATEWAY_BASE_URL_VAR = "NETLIFY_AI_GATEWAY_URL";
 const NETLIFY_AI_GATEWAY_DEFAULT_PATH = "/.netlify/ai/";
 const NETLIFY_ENVIRONMENT = "NETLIFY_ENVIRONMENT";
+const NETLIFY_NIMBLE_ENV_STATUS = "NETLIFY_NIMBLE_ENV_STATUS";
+const NETLIFY_NIMBLE_ROM_ENV_PREFIX = "NETLIFY_NIMBLE_ROM_ENV_";
 
 const isNonEmptyString = (value: unknown): value is string =>
   typeof value === "string" && value.length !== 0;
@@ -70,7 +72,7 @@ const injectEarlyAIEnvironment = (
     Deno.env.set(NETLIFY_AI_GATEWAY_BASE_URL_VAR, aiGatewayBaseURL);
 
     const providersToProcess =
-      (Array.isArray(data.envVars) && data.envVars.length > 0)
+      Array.isArray(data.envVars) && data.envVars.length > 0
         ? data.envVars
         : [];
 
@@ -111,7 +113,7 @@ const injectAIEnvironment = (
     env.set(NETLIFY_AI_GATEWAY_BASE_URL_VAR, aiGatewayBaseURL);
     env.set(NETLIFY_AI_GATEWAY_KEY_VAR, data.token);
     const providersToProcess =
-      (Array.isArray(data.envVars) && data.envVars.length > 0)
+      Array.isArray(data.envVars) && data.envVars.length > 0
         ? data.envVars
         : [];
 
@@ -135,8 +137,37 @@ const injectAIEnvironment = (
 const environment = env.get(NETLIFY_ENVIRONMENT);
 env.delete(NETLIFY_ENVIRONMENT);
 
+const nimbleRomEnvStatus = env.get(NETLIFY_NIMBLE_ENV_STATUS);
+env.delete(NETLIFY_NIMBLE_ENV_STATUS);
+
+const nimbleRomEnvLoaded = nimbleRomEnvStatus === "ok_loaded" ||
+  nimbleRomEnvStatus === "ok_no_env_vars";
+
+const nimbleRomEnvError = env.get("NETLIFY_NIMBLE_ENV_ERROR");
+env.delete("NETLIFY_NIMBLE_ENV_ERROR");
+
+const romEnvVars = nimbleRomEnvLoaded ? readRomEnvVars() : undefined;
+
+function readRomEnvVars(): Record<string, string> {
+  const romVars: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(env.toObject())) {
+    if (!key.startsWith(NETLIFY_NIMBLE_ROM_ENV_PREFIX)) {
+      continue;
+    }
+
+    // Remove the marker entry and recover the original env var name.
+    env.delete(key);
+    romVars[key.slice(NETLIFY_NIMBLE_ROM_ENV_PREFIX.length)] = value;
+  }
+
+  return romVars;
+}
+
+export const isNimbleRomEnvLoaded = () => nimbleRomEnvLoaded;
+
 export const getEnvironment = () => {
-  if (env.get("DENO_DEPLOYMENT_ID") || (environment === "production")) {
+  if (env.get("DENO_DEPLOYMENT_ID") || environment === "production") {
     return "production";
   }
 
@@ -155,10 +186,11 @@ export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
   }
 
   if (typeof envVars !== "object" || envVars === null) {
-    getLogger(req)
-      .debug("Environment variables header is not a valid object");
+    getLogger(req).debug("Environment variables header is not a valid object");
     return;
   }
+
+  compareHeaderEnvVarsToROM(req, envVars);
 
   for (const [key, value] of Object.entries(envVars)) {
     if (typeof value === "string") {
@@ -166,11 +198,93 @@ export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
     } else {
       getLogger(req)
         .withFields({ key, value_type: typeof value })
-        .debug(
-          "Environment variable value is not a string, skipping",
-        );
+        .debug("Environment variable value is not a string, skipping");
     }
   }
+};
+
+// diffHeaderEnvVarsAgainstROM compares the Stargate-supplied env var header
+// against the env vars the launcher decrypted from the ROM file, reporting
+// drift in both directions. Pure — returns key names only (never values, since
+// these are user secrets) so the caller can log the result safely.
+export const diffHeaderEnvVarsAgainstROM = (
+  headerVars: Record<string, string>,
+  romVars: Record<string, string>,
+): {
+  // Keys the header supplied that the ROM file lacks.
+  missingInROM: string[];
+  // Keys the ROM file holds that the header did not supply. Once we cut over,
+  // these would newly appear (or, from the header's perspective, were dropped).
+  missingInHeader: string[];
+  // Keys present in both sources but with differing values.
+  valueMismatch: string[];
+} => {
+  const headerKeys = new Set(Object.keys(headerVars));
+  const romKeys = new Set(Object.keys(romVars));
+
+  const missingInROM = Array.from(headerKeys.difference(romKeys));
+  const missingInHeader = Array.from(romKeys.difference(headerKeys));
+
+  const valueMismatch: string[] = [];
+  for (const key of headerKeys.intersection(romKeys)) {
+    if (headerVars[key] !== romVars[key]) {
+      valueMismatch.push(key);
+    }
+  }
+
+  return { missingInROM, missingInHeader, valueMismatch };
+};
+
+// compareHeaderEnvVarsToROM diffs the header against the ROM env vars the
+// launcher forwarded and emits the result as structured fields on the
+// per-request logger, so we can graph drift over time before flipping the
+// cutover. Logs key names only — never values, since these are user secrets.
+const compareHeaderEnvVarsToROM = (
+  req: EdgeRequest,
+  headerVars: Record<string, string>,
+) => {
+  if (!romEnvVars) {
+    if (
+      nimbleRomEnvStatus?.startsWith("err") ||
+      typeof nimbleRomEnvError !== "undefined"
+    ) {
+      // using bundle_version >= 1 but the launcher failed to load the ROM env file
+      getLogger(req)
+        .withFields({
+          nimble_env_rom_status: nimbleRomEnvStatus,
+          error: nimbleRomEnvError,
+        })
+        .error("Env vars not loaded from ROM file due to error");
+    }
+
+    return;
+  }
+
+  const { missingInROM, missingInHeader, valueMismatch } =
+    diffHeaderEnvVarsAgainstROM(headerVars, romEnvVars);
+
+  const driftCount = missingInROM.length + valueMismatch.length +
+    missingInHeader.length;
+  if (driftCount === 0) {
+    getLogger(req)
+      .withFields({
+        nimble_env_drift_keys: 0,
+        nimble_env_rom_status: nimbleRomEnvStatus,
+      })
+      .debug("No env var drift between header and ROM");
+
+    return;
+  }
+
+  getLogger(req)
+    .withFields({
+      nimble_env_rom_status: nimbleRomEnvStatus,
+      nimble_env_drift_keys: driftCount,
+      nimble_env_missing_in_rom_keys: missingInROM,
+      nimble_env_missing_in_header_keys: missingInHeader,
+      nimble_env_value_mismatch_keys: valueMismatch,
+    })
+    .log("Env var drift between Stargate header and ROM file");
 };
 
 // Populate environment variables that require a check and/or update on each request.

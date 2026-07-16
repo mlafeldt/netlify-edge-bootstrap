@@ -16,6 +16,7 @@ import {
 import {
   getEnvironment,
   injectEnvironmentVariablesFromHeader,
+  isNimbleRomEnvLoaded,
   populateEarlyAIEnvironment,
   populateEnvironment,
   resetInitialEnv,
@@ -269,6 +270,7 @@ const handleRequestInContext = async (
       cache_mode: getCacheMode(edgeReq),
       feature_flags: Object.keys(getFeatureFlags(edgeReq)),
       function_names: functionNames,
+      nimble_rom_env_loaded: isNimbleRomEnvLoaded(),
       url: req.url,
     });
     if (requestContext) {

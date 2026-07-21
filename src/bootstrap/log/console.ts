@@ -110,6 +110,72 @@ function truncateData(
   return data.slice(0, lo) + TRUNCATION_MARKER;
 }
 
+// Does the rendered line for this (already-serialized) payload fit the budget?
+const systemLogFits = (
+  preamble: string | undefined,
+  payload: Record<string, unknown>,
+  logLevel: LogLevel,
+) =>
+  encode(renderLine(preamble, stringify(payload), logLevel)).length <=
+    LOG_LINE_BYTE_BUDGET;
+
+// A system log's `data` is itself a JSON object (`{"__nfmessage":...,...}`).
+// Prefix-slicing it like a plain message would leave the object unterminated
+// and unparseable downstream (Ingesteer rejects it, and consumers that re-parse
+// the payload throw "unexpected end of input"). Instead we shrink the longest
+// string-valued field(s) - typically a large `url` or `__nfmessage` - so the
+// re-serialized payload stays valid JSON while fitting the byte budget. Returns
+// `undefined` if the payload can't be parsed or can't be trimmed structurally,
+// letting the caller fall back to plain string slicing.
+function truncateSystemLog(
+  preamble: string | undefined,
+  data: string,
+  logLevel: LogLevel,
+): string | undefined {
+  let payload: Record<string, unknown>;
+  try {
+    payload = JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+  if (payload === null || typeof payload !== "object") {
+    return undefined;
+  }
+
+  // Repeatedly trim the longest remaining string field until the line fits.
+  while (!systemLogFits(preamble, payload, logLevel)) {
+    let longestKey: string | undefined;
+    let longestLength = TRUNCATION_MARKER.length;
+    for (const [key, value] of Object.entries(payload)) {
+      if (typeof value === "string" && value.length > longestLength) {
+        longestKey = key;
+        longestLength = value.length;
+      }
+    }
+
+    // Nothing left long enough to shave off; let the caller fall back.
+    if (longestKey === undefined) {
+      return undefined;
+    }
+
+    const original = payload[longestKey] as string;
+    let lo = 0;
+    let hi = original.length;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      payload[longestKey] = original.slice(0, mid) + TRUNCATION_MARKER;
+      if (systemLogFits(preamble, payload, logLevel)) {
+        lo = mid;
+      } else {
+        hi = mid - 1;
+      }
+    }
+    payload[longestKey] = original.slice(0, lo) + TRUNCATION_MARKER;
+  }
+
+  return stringify(payload);
+}
+
 function generateOutput(data: string, logLevel: LogLevel): Uint8Array {
   const type = detectSystemLog(data);
   const preamble = generatePreamble(type);
@@ -118,6 +184,15 @@ function generateOutput(data: string, logLevel: LogLevel): Uint8Array {
   // toward ukpd's cap, so compare the line length without it.
   if (output.length - 1 <= LOG_LINE_BYTE_BUDGET) {
     return output;
+  }
+  // System logs must stay valid JSON, so truncate their fields structurally.
+  // Fall back to plain string slicing for user messages, or if the payload
+  // can't be trimmed that way.
+  if (type === "systemJSON") {
+    const fittedSystemLog = truncateSystemLog(preamble, data, logLevel);
+    if (fittedSystemLog !== undefined) {
+      return encode(renderLine(preamble, fittedSystemLog, logLevel) + "\n");
+    }
   }
   const fitted = truncateData(preamble, data, logLevel);
   return encode(renderLine(preamble, fitted, logLevel) + "\n");

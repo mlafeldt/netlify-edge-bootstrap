@@ -93,41 +93,6 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
   };
 };
 
-/**
- * Returns the `init` to use when constructing a `Request` from `input` (or when
- * calling `fetch` with it), so a stream body keeps its resource backing:
- *
- *   new Request(input, preserveBodyBacking(input, init))
- *   rawFetch(input, preserveBodyBacking(input, init))
- *
- * Deno keeps the backing only when the body arrives through `init`; an inherited
- * body goes through `createProxy()` — `pipeThrough(new TransformStream())` — and
- * loses it. With the backing, `fetch` hands Rust a rid and the body never enters
- * JS. Without it, every 64 KiB chunk is allocated, piped through an identity
- * transform and copied back into Rust: a pointless round trip on any version. On
- * 2.3.1 that pump also awaits itself per chunk, so the whole body stays resident
- * and a 1200MB upload OOM-kills a 1024MB VM. denoland/deno#30871 (2.5.5) fixes
- * the leak but not the round trip.
- *
- * The backing must survive every hop: each `new Request(someRequest)` drops it
- * again, and re-supplying an already-proxied body won't bring it back. That
- * includes the hop that's easy to miss — `fetch()` builds its own `Request`
- * internally, so `fetch(req)` drops the backing however carefully it was
- * preserved beforehand.
- */
-export const preserveBodyBacking = (
-  input: RequestInfo | URL,
-  init?: RequestInit,
-): RequestInit | undefined => {
-  // Only an inherited body is at risk: an explicit `init.body` already takes the
-  // `extractBody` path that keeps the backing.
-  if (input instanceof Request && input.body && init?.body == null) {
-    return { ...init, body: input.body };
-  }
-
-  return init;
-};
-
 export class EdgeRequest extends Request {
   [internalsSymbol]: EdgeRequestInternals;
   [loggerSymbol]: StructuredLogger;
@@ -135,10 +100,7 @@ export class EdgeRequest extends Request {
   constructor(input: RequestInfo | URL, init?: RequestInit) {
     const base = input instanceof URL ? new Request(input, init) : input;
 
-    // Pass the body explicitly rather than letting `super(base)` inherit and
-    // proxy it, which would drop its resource backing before user code ever
-    // sees the request.
-    super(base, preserveBodyBacking(base));
+    super(base);
 
     const internals = init instanceof EdgeRequest
       ? init[internalsSymbol]

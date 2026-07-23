@@ -1,10 +1,6 @@
 import { FeatureFlag, hasFlag } from "../feature_flags.ts";
 import { InternalHeaders, StandardHeaders } from "../headers.ts";
-import {
-  internalsSymbol,
-  PassthroughRequest,
-  preserveBodyBacking,
-} from "../request.ts";
+import { internalsSymbol, PassthroughRequest } from "../request.ts";
 import {
   getContextualLogger,
   getExecutionContextAndLogFailure,
@@ -28,13 +24,6 @@ const safelyGetFetchURL = (input: string | URL | Request) => {
   } catch {
     // no-op
   }
-};
-
-export const patchFetchToPreserveRequestBodyBacking = (
-  rawFetch: typeof globalThis.fetch,
-) => {
-  return (input: URL | Request | string, init?: RequestInit) =>
-    rawFetch(input, preserveBodyBacking(input, init));
 };
 
 export const patchFetchToTrackSubrequests = (
@@ -149,7 +138,7 @@ export const patchFetchToForwardHeaders = (
     }
 
     const { chain } = executionContext;
-    const request = new Request(input, preserveBodyBacking(input, init));
+    const request = new Request(input, init);
     const { cdnLoop, requestID } = chain.request[internalsSymbol];
 
     if (requestID && hasFlag(chain.request, FeatureFlag.ForwardRequestID)) {
@@ -287,14 +276,12 @@ export const patchFetchToFallbackToHttp11OnUnspecificProtocolError = (
       const method = init?.method ??
         (input instanceof Request ? input.method : "GET");
 
-      getContextualLogger()
-        .withFields({
-          method: method,
-          url: loggedURL,
-        })
-        .log(
-          "fetch failed with HTTP/2 error: unspecific protocol error detected, retrying with HTTP/1",
-        );
+      getContextualLogger().withFields({
+        method: method,
+        url: loggedURL,
+      }).log(
+        "fetch failed with HTTP/2 error: unspecific protocol error detected, retrying with HTTP/1",
+      );
 
       // Attempt to fallback to HTTP/1. The "http2 error: stream error detected: unspecific protocol error detected"
       // error can happen if response headers exceed the maximum size allowed by the HTTP/2 implementation, which currently

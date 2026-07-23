@@ -4,7 +4,6 @@ import { NimbleConsole } from "../log/console.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
 import {
   patchFetchToFallbackToHttp11OnUnspecificProtocolError,
-  patchFetchToPreserveRequestBodyBacking,
   patchFetchToTrackSubrequests,
 } from "../util/fetch.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
@@ -108,9 +107,6 @@ export const patchGlobals = () => {
 
   Response.redirect = patchResponseRedirect(Response.redirect);
 
-  // Applied first so it ends up innermost: it must be the last layer to touch
-  // the request before Deno's own `fetch`. See its definition for why.
-  globalThis.fetch = patchFetchToPreserveRequestBodyBacking(globalThis.fetch);
   globalThis.fetch = patchFetchToForwardHeaders(globalThis.fetch);
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
 

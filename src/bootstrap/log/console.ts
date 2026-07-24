@@ -210,7 +210,6 @@ function generatePreamble(type?: LogType) {
       edgeFunctionName,
       requestID: executionContext?.requestID,
       spanID: executionContext?.spanID,
-      logToken: executionContext?.logToken,
     };
 
     if (type) {

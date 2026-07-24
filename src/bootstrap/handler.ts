@@ -106,18 +106,16 @@ export const handleRequest = (
   }: HandleRequestOptions = {},
 ): Promise<Response> => {
   const id = req.headers.get(InternalHeaders.RequestID);
-  const logToken = req.headers.get(InternalHeaders.LogToken);
   const spanID = req.headers.get(InternalHeaders.NFTraceSpanID);
 
   const executionController = new AbortController();
 
   // Set up request-level context for the entire request handling lifecycle.
-  // This provides basic metadata (requestID, spanID, logToken) for logs emitted
+  // This provides basic metadata (requestID, spanID) for logs emitted
   // outside function execution.
   const requestContext: RequestContext = {
     requestID: id ?? "",
     spanID: spanID ?? "",
-    logToken: logToken ?? "",
     abortExecution: (reason: unknown) => executionController.abort(reason),
   };
 
@@ -148,9 +146,8 @@ const handleRequestInContext = async (
   }: HandleRequestOptions = {},
 ) => {
   const id = req.headers.get(InternalHeaders.RequestID);
-  const logToken = req.headers.get(InternalHeaders.LogToken);
   const environment = getEnvironment();
-  const logger = detachedLogger.withRequestID(id).withLogToken(logToken);
+  const logger = detachedLogger.withRequestID(id);
   if (requestContext) {
     requestContext.logger = logger;
   }

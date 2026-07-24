@@ -51,8 +51,6 @@ interface EdgeRequestInternals {
   requestID: string | null;
   spanID?: string | null;
   site: Site;
-  // logToken is a JWT containing site metadata. It's only sent for Nimble invocations.
-  logToken?: string | null;
 }
 
 const makeInternals = (headers: Headers): EdgeRequestInternals => {
@@ -89,7 +87,6 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     requestID: headers.get(InternalHeaders.RequestID),
     spanID: headers.get(InternalHeaders.NFTraceSpanID),
     site,
-    logToken: headers.get(InternalHeaders.LogToken),
   };
 };
 
@@ -109,15 +106,13 @@ export class EdgeRequest extends Request {
     this[internalsSymbol] = internals;
 
     const requestID = this.headers.get(InternalHeaders.RequestID);
-    const logToken = this.headers.get(InternalHeaders.LogToken);
     const logLevel = this.headers.has(InternalHeaders.DebugLogging)
       ? LogLevel.Debug
       : LogLevel.Log;
 
     this[loggerSymbol] = detachedLogger
       .withRequestID(requestID)
-      .withLogLevel(logLevel)
-      .withLogToken(logToken);
+      .withLogLevel(logLevel);
 
     [
       InternalHeaders.AccountInfo,
@@ -185,9 +180,6 @@ export const getRequestID = (request: EdgeRequest) =>
 
 export const getSpanID = (request: EdgeRequest) =>
   request[internalsSymbol].spanID ?? "";
-
-export const getLogToken = (request: EdgeRequest) =>
-  request[internalsSymbol].logToken ?? "";
 
 export const getBypassSettings = (request: EdgeRequest) =>
   request[internalsSymbol].bypassSettings;

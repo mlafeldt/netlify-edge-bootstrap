@@ -13,7 +13,6 @@ export interface InstrumentedLogMetadata {
   functionName?: string;
   requestID?: string;
   spanID?: string;
-  logToken?: string;
   logLevel?: LogLevel;
 }
 
@@ -23,7 +22,6 @@ export interface NetlifyMetadata {
   spanID?: string;
   type?: LogType;
   url?: string;
-  logToken?: string;
   logLevel?: LogLevel;
 }
 
@@ -55,7 +53,6 @@ export const instrumentedLog = (
     functionName,
     requestID,
     spanID,
-    logToken: logToken,
     logLevel,
   } = metadata ??
     {};
@@ -68,21 +65,13 @@ export const instrumentedLog = (
       logLevel,
     };
 
-    if (logToken) {
-      metadata.logToken = logToken;
-    }
-
     // If the input is a `StructuredLogger` instance, we know we're dealing
     // with a system log, so we add the right metadata object to the payload.
     if (isStructuredLogger(data[0])) {
-      const { fields, message, requestID, logToken } = data[0].serialize();
+      const { fields, message, requestID } = data[0].serialize();
 
       if (requestID) {
         metadata.requestID = requestID;
-      }
-
-      if (logToken) {
-        metadata.logToken = logToken;
       }
 
       metadata.type = "systemJSON";
@@ -156,7 +145,6 @@ export const patchLogger = <Fn extends (...args: any[]) => any>(
           functionName: executionContext?.functionName,
           requestID: executionContext?.requestID,
           spanID: executionContext?.spanID,
-          logToken: executionContext?.logToken,
           logLevel,
         },
       );

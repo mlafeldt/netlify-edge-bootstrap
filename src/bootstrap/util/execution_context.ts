@@ -14,7 +14,6 @@ import { StackTracer } from "./stack_tracer.ts";
 export interface RequestContext {
   requestID: string;
   spanID: string;
-  logToken: string;
   abortExecution?: (reason?: unknown) => void;
   logger?: StructuredLogger;
 }
@@ -57,7 +56,6 @@ export const getExecutionContext = (): ExecutionContext | undefined => {
       functionName: chain.functionNames[functionIndex],
       requestID: chain.requestID,
       spanID: chain.spanID,
-      logToken: chain.logToken,
     };
   }
 
@@ -70,7 +68,6 @@ export const getExecutionContext = (): ExecutionContext | undefined => {
       functionName: "",
       requestID: requestContext.requestID,
       spanID: requestContext.spanID,
-      logToken: requestContext.logToken,
     };
   }
 
@@ -83,7 +80,6 @@ export interface ExecutionContext {
   functionName: string;
   requestID: string;
   spanID: string;
-  logToken: string;
 }
 
 // To reduce log volume, we use this to keep track of the times we've failed to

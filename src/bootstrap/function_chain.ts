@@ -26,7 +26,6 @@ import {
   getIdentity,
   getIP,
   getLogger,
-  getLogToken,
   getRegion,
   getRequestID,
   getSite,
@@ -213,7 +212,6 @@ class FunctionChain {
         origin_url: url,
       })
       .withRequestID(this.requestID)
-      .withLogToken(this.logToken)
       .debug(
         "Finished edge function request to origin",
       );
@@ -337,7 +335,6 @@ class FunctionChain {
           functionName,
           requestID: this.requestID,
           spanID: this.spanID,
-          logToken: this.logToken,
           logLevel: "info",
         },
       );
@@ -386,10 +383,6 @@ class FunctionChain {
 
   get spanID() {
     return getSpanID(this.request);
-  }
-
-  get logToken() {
-    return getLogToken(this.request);
   }
 
   rewrite(url: string | URL) {
@@ -675,7 +668,6 @@ class FunctionChain {
         functionName: name,
         requestID: this.requestID,
         spanID: this.spanID,
-        logToken: this.logToken,
       };
 
       const logUncaughtError = () =>

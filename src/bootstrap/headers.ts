@@ -21,6 +21,7 @@ export enum InternalHeaders {
   RequestID = "x-nf-request-id",
   IP = "x-nf-client-connection-ip",
   NimbleRegion = "x-nf-nimble-region",
+  NimbleService = "x-nf-nimble-service",
   UncaughtError = "x-nf-uncaught-error",
   PlatformError = "x-nf-edge-function-platform-error",
   FeatureFlags = "x-nf-feature-flags",

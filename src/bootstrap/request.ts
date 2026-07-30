@@ -36,6 +36,7 @@ interface EdgeRequestInternals {
   cacheMode: string | null;
   cdnLoop: string | null;
   deploy: Deploy;
+  edgeFunctionEnv: string | null;
   featureFlags: FeatureFlags;
   forwardedHost: string | null;
   forwardedProtocol: string | null;
@@ -48,6 +49,7 @@ interface EdgeRequestInternals {
   passthroughHeaders?: Headers;
   netlifyDBURL: string | null;
   purgeAPIToken: string | null;
+  region: string | null;
   requestID: string | null;
   spanID?: string | null;
   site: Site;
@@ -73,6 +75,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     cacheMode: headers.get(InternalHeaders.EdgeFunctionCache),
     cdnLoop: headers.get(StandardHeaders.CDNLoop),
     deploy,
+    edgeFunctionEnv: headers.get(InternalHeaders.NFEdgeFuncEnv),
     featureFlags: {},
     forwardedHost: headers.get(InternalHeaders.ForwardedHost),
     forwardedProtocol: headers.get(InternalHeaders.ForwardedProtocol),
@@ -84,6 +87,7 @@ const makeInternals = (headers: Headers): EdgeRequestInternals => {
     passthroughHost: headers.get(InternalHeaders.PassthroughHost),
     passthroughProtocol: headers.get(InternalHeaders.PassthroughProtocol),
     purgeAPIToken: headers.get(InternalHeaders.PurgeAPIToken),
+    region: headers.get(InternalHeaders.NimbleRegion),
     requestID: headers.get(InternalHeaders.RequestID),
     spanID: headers.get(InternalHeaders.NFTraceSpanID),
     site,
@@ -134,6 +138,9 @@ export class EdgeRequest extends Request {
       InternalHeaders.FeatureFlags,
       InternalHeaders.EdgeFunctionBypass,
       InternalHeaders.NetlifyDBURL,
+      InternalHeaders.NFEdgeFuncEnv,
+      InternalHeaders.NimbleRegion,
+      InternalHeaders.NimbleService,
       InternalHeaders.SiteInfo,
       InternalHeaders.SkewProtectionToken,
     ].forEach((header) => {
@@ -150,6 +157,9 @@ export const getAIGateway = (request: EdgeRequest) =>
 
 export const getBlobs = (request: EdgeRequest) =>
   request[internalsSymbol].blobs;
+
+export const getEdgeFunctionEnv = (request: EdgeRequest) =>
+  request[internalsSymbol].edgeFunctionEnv;
 
 export const getCacheAPIURL = (request: EdgeRequest) =>
   request[internalsSymbol].cacheAPIURL;
@@ -219,8 +229,7 @@ export const getFeatureFlags = (request: EdgeRequest) =>
 export const getSite = (request: EdgeRequest) => request[internalsSymbol].site;
 
 export const getRegion = (request: EdgeRequest) =>
-  request.headers.get(InternalHeaders.NimbleRegion) ?? env.get("DENO_REGION") ??
-    "";
+  request[internalsSymbol].region ?? env.get("DENO_REGION") ?? "";
 
 interface PassthroughRequestOptions {
   req: EdgeRequest;

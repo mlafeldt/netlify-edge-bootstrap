@@ -7,20 +7,17 @@ import {
   type Dictionary,
 } from "../vendor/cdn.jsdelivr.net/npm/structured-headers@2.0.2/dist/types.d.ts";
 
-import { InternalHeaders } from "./headers.ts";
-
 /**
- * Extracts the environment variables from the InternalHeaders.NFEdgeFuncEnv header.
- * @param headers Headers object possibly containing InternalHeaders.NFEdgeFuncEnv entry
+ * Extracts the environment variables from the value of the
+ * InternalHeaders.NFEdgeFuncEnv header.
+ * @param header Value of the InternalHeaders.NFEdgeFuncEnv header, if any
  * @returns A map of environment variable names to their values
  */
 export function GetEnvFromEdgeFuncEnvHeader(
-  headers: Headers,
+  header: string | null,
 ): Record<string, string> {
-  const header = headers.get(InternalHeaders.NFEdgeFuncEnv) ?? "";
-
   const out: Record<string, string> = {};
-  const trimmed = header.trim();
+  const trimmed = (header ?? "").trim();
   if (!trimmed) {
     return out;
   }

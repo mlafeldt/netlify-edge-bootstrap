@@ -1,6 +1,7 @@
 import { FeatureFlag } from "./feature_flags.ts";
 import {
   getAIGateway,
+  getEdgeFunctionEnv,
   getFeatureFlags,
   getLogger,
   getNetlifyDBURL,
@@ -177,7 +178,7 @@ export const getEnvironment = () => {
 export const injectEnvironmentVariablesFromHeader = (req: EdgeRequest) => {
   let envVars: Record<string, string> | undefined;
   try {
-    envVars = GetEnvFromEdgeFuncEnvHeader(req.headers);
+    envVars = GetEnvFromEdgeFuncEnvHeader(getEdgeFunctionEnv(req));
   } catch (error) {
     getLogger(req)
       .withError(error as Error)

@@ -3,7 +3,7 @@ import { patchDenoFS } from "../deno-fs.ts";
 import { NimbleConsole } from "../log/console.ts";
 import { patchLogger } from "../log/instrumented_log.ts";
 import {
-  patchFetchToFallbackToHttp11OnUnspecificProtocolError,
+  patchFetchToIncreaseMaxHeaderSizeLimit,
   patchFetchToTrackSubrequests,
 } from "../util/fetch.ts";
 import { patchResponseRedirect } from "../util/redirect.ts";
@@ -111,7 +111,7 @@ export const patchGlobals = () => {
   globalThis.fetch = patchFetchToTrackSubrequests(globalThis.fetch);
 
   if (globalThis.console instanceof NimbleConsole) {
-    globalThis.fetch = patchFetchToFallbackToHttp11OnUnspecificProtocolError(
+    globalThis.fetch = patchFetchToIncreaseMaxHeaderSizeLimit(
       globalThis.fetch,
     );
   }

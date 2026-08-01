@@ -184,6 +184,26 @@ export const patchFetchToForceHTTP11 = (rawFetch: typeof globalThis.fetch) => {
   };
 };
 
+export const patchFetchToIncreaseMaxHeaderSizeLimit = (function () {
+  let client: Deno.HttpClient;
+  let isClientPatched = false;
+  return (rawFetch: typeof globalThis.fetch) => {
+    if (isClientPatched) {
+      return rawFetch;
+    }
+    isClientPatched = true;
+    if (typeof Deno.createHttpClient !== "function") {
+      return rawFetch;
+    }
+    // The default max header list size is 16kb, which is too small for some requests.
+    // We increase it to 256kb to avoid issues with requests that have large headers and match deno deploy.
+    client = Deno.createHttpClient({ http2MaxHeaderListSize: 1024 * 256 });
+    return (input: URL | Request | string, init?: RequestInit) => {
+      return rawFetch(input, { ...init, client });
+    };
+  };
+})();
+
 // We currently see issues with some requests on Deno and the current thinking is
 // something in the H2 client is broken and the client is entering a weird state
 // and either cannot get or lose a connection from the pool. This means that sometimes
@@ -244,58 +264,4 @@ export const isUnspecificProtocolError = (error: unknown): boolean => {
   }
 
   return false;
-};
-
-export const patchFetchToFallbackToHttp11OnUnspecificProtocolError = (
-  rawFetch: typeof globalThis.fetch,
-) => {
-  return (input: URL | Request | string, init?: RequestInit) => {
-    return rawFetch(input, init).catch((error) => {
-      // Rethrow an error if it's not the specific "stream error detected: unspecific protocol error detected" error
-      if (!isUnspecificProtocolError(error)) {
-        throw error;
-      }
-
-      const url = safelyGetFetchURL(input);
-
-      // The console line has a fixed byte cap (see MAX_LOG_LINE_BYTES in
-      // log/console.ts). A fetch URL with a large query string - e.g. a
-      // Supabase REST filter listing hundreds of IDs - can blow past that cap
-      // on its own. Truncating the serialized systemJSON payload to fit would
-      // sever its JSON envelope and make the whole line unparseable downstream,
-      // so we drop oversized query params before logging (they're ignored in
-      // Ingesteer, mirroring the __nfmeta URL handling). We copy the URL rather
-      // than mutate it, since the retry below reuses `input`.
-      let loggedURL = url?.toString();
-      if (url && url.search.length > 256) {
-        const trimmed = new URL(url.href);
-        trimmed.search = "?query-params-truncated";
-        loggedURL = trimmed.toString();
-      }
-
-      const method = init?.method ??
-        (input instanceof Request ? input.method : "GET");
-
-      getContextualLogger().withFields({
-        method: method,
-        url: loggedURL,
-      }).log(
-        "fetch failed with HTTP/2 error: unspecific protocol error detected, retrying with HTTP/1",
-      );
-
-      // Attempt to fallback to HTTP/1. The "http2 error: stream error detected: unspecific protocol error detected"
-      // error can happen if response headers exceed the maximum size allowed by the HTTP/2 implementation, which currently
-      // is not configurable in Deno (16kb). Falling back to HTTP/1 allows the request to succeed in those cases.
-      return rawFetch(input, { ...init, client: getHttp11Client() }).then(
-        (response) => {
-          // If the http1 fallback did not reject, log a warning that we had to fallback to HTTP/1 for this request
-          getContextualLogger().log(
-            "fetch retry with HTTP/1 succeeded after HTTP/2 error: unspecific protocol error detected",
-          );
-
-          return response;
-        },
-      );
-    });
-  };
 };

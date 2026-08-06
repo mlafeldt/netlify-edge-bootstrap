@@ -36,10 +36,7 @@ import {
   UserError,
 } from "./util/errors.ts";
 import "./globals/types.ts";
-import {
-  patchFetchToForceHTTP11,
-  patchFetchToHaveItsOwnConnectionPoolPerIsolate,
-} from "./util/fetch.ts";
+import { patchFetchToHaveItsOwnConnectionPoolPerIsolate } from "./util/fetch.ts";
 import { RequestContext, requestStore } from "./util/execution_context.ts";
 import type { BundleManifest } from "./bundle_manifest.ts";
 
@@ -166,14 +163,6 @@ const handleRequestInContext = async (
     );
   }
 
-  // if ForceHTTP11 is enabled, we patch the fetch to enforce HTTP/1.1
-  if (featureFlags[FeatureFlag.ForceHTTP11]) {
-    // this is not incuded in the `patchGlobals` function because that function
-    // is invoked before we have access to the feature flags. once this is fully
-    // rolled out, we will want to move this into `patchGlobals`
-    globalThis.fetch = patchFetchToForceHTTP11(globalThis.fetch);
-  }
-
   // A collector of all the functions invoked by this chain or any sub-chains
   // that it triggers.
   const metrics = new RequestMetrics();
@@ -203,19 +192,6 @@ const handleRequestInContext = async (
     }
 
     const url = new URL(req.url);
-
-    // The Golang and Node/Deno URL implementations disagree about the encoding of comma characters.
-    // Stargate percent-encodes them before invoking the Edge Function
-    // (see https://github.com/netlify/stargate/blob/5a0e0cdadf753223aba09b3e1cbadd702ed58364/proxy/deno/edge.go#L1202-L1206)
-    // but Deno doesn't decode them by default.
-    // We want this to work the same across Functions an Edge Functions, so we're doing it manually:
-    if (featureFlags[FeatureFlag.DecodeQuery]) {
-      try {
-        url.search = decodeURIComponent(url.search);
-      } catch {
-        logger.withFields({ query: url.search }).log("Failed to decode query");
-      }
-    }
 
     if (getEnvironment() === "local") {
       // We need to change the URL we expose to user code to ensure it reflects

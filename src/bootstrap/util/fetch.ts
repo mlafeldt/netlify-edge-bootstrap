@@ -153,37 +153,6 @@ export const patchFetchToForwardHeaders = (
   };
 };
 
-let http11Client: Deno.HttpClient;
-function getHttp11Client() {
-  if (!http11Client) {
-    if (typeof Deno.createHttpClient !== "function") {
-      throw new Error("Deno.createHttpClient is not available");
-    }
-    http11Client = Deno.createHttpClient({ http1: true, http2: false });
-  }
-  return http11Client;
-}
-
-// We currently see issues with some requests on Deno and the current thinking is
-// something in the H2 client is broken and the client is entering a weird state
-// and either cannot get or lose a connection from the pool. This means that sometimes
-// a fetch doesn't reach us at all, it can't establish connection.
-// Our working theory is to temporarily switch to HTTP/1 for passthrough requests.
-export let isHTTP11ClientPatched = false;
-export const patchFetchToForceHTTP11 = (rawFetch: typeof globalThis.fetch) => {
-  if (isHTTP11ClientPatched) {
-    return rawFetch;
-  }
-  isHTTP11ClientPatched = true;
-  if (typeof Deno.createHttpClient !== "function") {
-    return rawFetch;
-  }
-  http11Client = getHttp11Client();
-  return (input: URL | Request | string, init?: RequestInit) => {
-    return rawFetch(input, { ...init, client: http11Client });
-  };
-};
-
 export const patchFetchToIncreaseMaxHeaderSizeLimit = (function () {
   let client: Deno.HttpClient;
   let isClientPatched = false;
@@ -226,42 +195,4 @@ export const patchFetchToHaveItsOwnConnectionPoolPerIsolate = (
   return (input: URL | Request | string, init?: RequestInit) => {
     return rawFetch(input, { ...init, client });
   };
-};
-
-// The error surfaced when an HTTP/2 response exceeds the (currently
-// non-configurable, 16kb) maximum header size has moved around between Deno
-// versions. Up to Deno 2.8 it surfaced on the top-level error's `message`
-// (e.g. "... http2 error: stream error detected: unspecific protocol error
-// detected"). In Deno 2.9 the thrown error's `message` is just "fetch failed"
-// and the protocol error is nested in `error.cause`. In every version seen so
-// far the substring "stream error detected: unspecific protocol error
-// detected" appears somewhere in the error or its cause chain, so we walk the
-// chain and match on that.
-//
-// Note that the string does not originate in Deno itself: it comes from `h2`,
-// the HTTP/2 implementation Deno's HTTP client is built on, which is why it has
-// survived Deno's own error reshuffling.
-// See https://github.com/hyperium/h2/blob/21211d065f8acd96827414020b5f53b63653f406/src/frame/reason.rs#L66
-// This match holds as long as Deno keeps forwarding the `h2` error somewhere in
-// the cause chain and does not swap out the underlying library.
-export const isUnspecificProtocolError = (error: unknown): boolean => {
-  const seen = new Set<unknown>();
-  let current: unknown = error;
-
-  while (current instanceof Error && !seen.has(current)) {
-    seen.add(current);
-
-    if (
-      typeof current.message === "string" &&
-      current.message.includes(
-        "stream error detected: unspecific protocol error detected",
-      )
-    ) {
-      return true;
-    }
-
-    current = current.cause;
-  }
-
-  return false;
 };

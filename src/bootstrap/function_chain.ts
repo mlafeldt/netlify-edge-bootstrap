@@ -37,6 +37,7 @@ import { backoffRetry } from "./retry.ts";
 import { OriginResponse } from "./response.ts";
 import { OnError, Router } from "./router.ts";
 import {
+  flattenErrorMessages,
   PassthroughError,
   UnretriableError,
   UserError,
@@ -174,9 +175,13 @@ class FunctionChain {
 
         return result;
       } catch (error: any) {
+        // The detail that tells us the client went away sits in the error
+        // message on Deno 2.8.2 and below, and in the `cause` chain from 2.9.3
+        // on, so we match against both.
+        const errorMessages = flattenErrorMessages(error);
         const isStreamError = error.name === "TypeError" &&
-          (error.message === "Failed to fetch: request body stream errored" ||
-            error.message.includes("http2 error: stream error sent by user"));
+          (errorMessages.includes("request body stream errored") ||
+            errorMessages.includes("stream error sent by user"));
 
         // If the client went away, stop retrying and return a 499 immediately.
         if (isStreamError || originReq.signal.aborted) {

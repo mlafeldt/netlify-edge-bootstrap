@@ -3,7 +3,6 @@ import { EdgeRequest, getFeatureFlags } from "./request.ts";
 export type FeatureFlags = Record<string, boolean>;
 
 export enum FeatureFlag {
-  ForwardRequestID = "edge_functions_bootstrap_forward_request_id",
   LogHTMLRewriter = "edge_functions_bootstrap_log_html_rewriter",
   UseOneClientPoolPerIsolate =
     "edge_functions_bootstrap_use_one_client_pool_per_isolate",

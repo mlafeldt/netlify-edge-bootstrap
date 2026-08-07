@@ -141,7 +141,7 @@ export const patchFetchToForwardHeaders = (
     const request = new Request(input, init);
     const { cdnLoop, requestID } = chain.request[internalsSymbol];
 
-    if (requestID && hasFlag(chain.request, FeatureFlag.ForwardRequestID)) {
+    if (requestID) {
       request.headers.set(InternalHeaders.RequestID, requestID);
     }
 

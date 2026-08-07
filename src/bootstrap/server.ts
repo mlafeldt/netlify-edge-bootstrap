@@ -45,6 +45,12 @@ export const serve = (
     : optionsOrListenCallback;
 
   const serveOptions: Deno.ServeTcpOptions = {
+    // Deno 2.9 turned automatic compression off by default
+    // (https://github.com/denoland/deno/pull/35486). We compress passthrough
+    // bodies that `fetch` decoded for us on the way in, so without this the
+    // response leaves the isolate in plaintext. Older versions compress by
+    // default and accept the option without complaint.
+    automaticCompression: true,
     onListen() {
       if (typeof onListen === "function") {
         onListen();

@@ -33,6 +33,12 @@ export interface Deploy {
   skewProtectionToken?: string;
 }
 
+export interface NetlifyUser {
+  id: string;
+  email?: string;
+  expiresAt: Date;
+}
+
 export interface Context {
   cookies: Cookies;
   geo: Geo;
@@ -69,6 +75,13 @@ export interface Context {
   path: string;
   url: URL;
   spanID: string;
+
+  /**
+   * The Netlify user who passed SSO site protection for this request. Undefined
+   * on sites without SSO protection.
+   */
+  user?: NetlifyUser;
+
   waitUntil: (promise: Promise<unknown>) => void;
 }
 
